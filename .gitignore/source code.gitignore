@@ -1,0 +1,2572 @@
+// авторегистратор
+Tab Tab1 = instance.ActiveTab;
+
+string Name = project.Variables["name"].Value;
+if (Name!=string.Empty) project.Profile.Name = Name;
+string Surname = project.Variables["surname"].Value;
+if (Surname!=string.Empty) project.Profile.Surname = Surname;
+int i=0;
+Random rndGenerator = new Random();
+string strDate = DateTime.Now.ToString("dd.MM.yyyy hh.mm.ss");
+SibboraHelper.WebHelper wHelper = new SibboraHelper.WebHelper(instance, project);
+wHelper.GlobalKMEmulate = true;
+wHelper.AllStepsLog.Options.GetScreenshots = false;
+bool ProtectXPath = true;
+
+HtmlElement he = instance.ActiveTab.FindElementById("errorTryAgain");
+string stTabURL = string.Empty;
+
+int PauseBefore = rndGenerator.Next(0, 50);
+int PauseBetweenChecks = rndGenerator.Next(0, 50);
+int Timeout = rndGenerator.Next(15000, 30000);
+int FullEmulationDelayFrom = rndGenerator.Next(0, 50);
+int FullEmulationDelayTo = rndGenerator.Next(0, 50);
+int SendTextMinDelay = rndGenerator.Next(0, 50);
+int SendTextMaxDelay = rndGenerator.Next(0, 50);
+
+int intSpeedModeSend = rndGenerator.Next(0, 5000);
+wHelper.PauseBefore = rndGenerator.Next(0, 5000);
+wHelper.AllStepsLog.Options.GetScreenshots = false;
+bool blnRegAkk = Convert.ToBoolean(project.Variables["reg_akk"].Value);
+bool blnTelInstance = Convert.ToBoolean(project.Variables["TelInstance"].Value);
+
+instance.ClearCache(); //очищаю кэш
+instance.ClearCookie(); //очищаю куки
+
+instance.UseCSS = true;
+instance.UseMedia = true;
+
+instance.CanvasRenderMode = ZennoLab.InterfacesLibrary.Enums.Browser.CanvasMode.Emulate; //включаем эмуляцию канваса
+instance.CanvasRenderSeed = Guid.NewGuid().ToString(); //генерируем новый Canvas Seed
+
+IZennoList lstMail = project.Lists["mail"];
+
+//Получаем настройки из переменных уровня проекта
+string strMailDomain = project.Variables["cfg_mail_domain"].Value;
+bool blnChangeLogin = Convert.ToBoolean(project.Variables["cfg_change_profile_login"].Value);
+string strTownType = project.Variables["cfg_town_type"].Value;
+bool blnUseSmsActivation = Convert.ToBoolean(project.Variables["cfg_use_sms"].Value);
+string strSmsService = project.Variables["cfg_sms_service"].Value;
+string strCaptchaService = project.Variables["cfg_captcha_service"].Value;
+string strRegisteredMail = string.Empty;
+string strConfirmationCode = string.Empty;
+string strRegistrationID = string.Empty;
+string strSelectedAccount = string.Empty;
+string strSetStatusResult = string.Empty;
+string strGetResultHeaderBody = string.Empty;
+string ProverkaNum = string.Empty;
+string strServiseSite = string.Empty;
+string strOperator = string.Empty;
+string resultCode = string.Empty;
+string strPhoneNumber = string.Empty;
+string strMailResult = string.Empty;
+string strTargetFolder = string.Empty;
+string strBannerPhotoAkk = string.Empty;
+IZennoList lstProxy = project.Lists["proxy"];
+string strProxyIPV6 = project.Variables["proxyIPV6"].Value;
+IZennoList lstProxyIPV6 = project.Lists["proxyIPV6"];
+string strProxyList = project.Variables["proxy"].Value;
+string strProyType = string.Empty;
+string strLogin = string.Empty;
+string strPass = string.Empty;
+List<string> lstProxyTemp = new List<string>();
+string strProxy = string.Empty;
+if (strProxyList!=string.Empty) {
+	if (lstProxy.Count==0) {
+		project.SendInfoToLog("Добавьте прокси в список, на данным момент работаем без прокси",true);
+	} else {
+		lock (SyncObjects.ListSyncer) {
+			strProxy = lstProxy[0];
+			lstProxy.RemoveAt(0);
+			lstProxy.Add(strProxy);
+			instance.SetProxy(strProxy, false, true, true);
+			string strAPIResponse = ZennoPoster.HttpGet("https://whoer.net/ru", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly, 30000);
+			strAPIResponse = new Regex(@"(?<=<span\ class=""cont\ \ overdots"">)[\w\W]*?(?=</dd>)").Match(strAPIResponse).Value;
+			if (strAPIResponse.Contains("Ru") || strAPIResponse.Contains("ru")) {
+				Random r = new Random();
+				string[] acceptLanguageSet = {
+				    "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4",
+				    "ru-RU,ru;q=0.9,en;q=0.8",
+				    "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3"
+				};
+				// Устанавливаем Accept-Language
+				string acceptLanguage = acceptLanguageSet[r.Next(0, acceptLanguageSet.Length)].ToString();
+				project.Profile.AcceptLanguage = acceptLanguage;
+				// Устанавливаем настройки языка
+				project.Profile.UserAgentBrowserLanguage = acceptLanguage.Substring(0, acceptLanguage.IndexOf(','));
+				project.Profile.UserAgentLanguage = acceptLanguage.Substring(0, acceptLanguage.IndexOf(','));
+			} else {
+				Random R = new Random();
+				string[] acceptLanguageSet1 = {
+						"en-US,en;q=0.5"
+				};
+				string acceptLanguage1 = acceptLanguageSet1[R.Next(0, acceptLanguageSet1.Length)].ToString();
+				project.Profile.AcceptLanguage = acceptLanguage1;
+				// Устанавливаем настройки языка
+				project.Profile.UserAgentBrowserLanguage = acceptLanguage1.Substring(0, acceptLanguage1.IndexOf(','));
+				project.Profile.UserAgentLanguage = acceptLanguage1.Substring(0, acceptLanguage1.IndexOf(','));
+			}
+		}
+	}
+} else {
+	string strAPIResponse2 = ZennoPoster.HttpGet("https://whoer.net/ru", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly, 30000);
+	strAPIResponse2 = new Regex(@"(?<=\n<span\ class=""cont"">)[\w\W]*(?=<span\ class=""ico-holder\ region"">)").Match(strAPIResponse2).Value;
+	if (strAPIResponse2.Contains("Rus") || strAPIResponse2.Contains("rus")) {
+		Random ra = new Random();
+		string[] acceptLanguageSet2 = {
+		    "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4",
+		    "ru-RU,ru;q=0.9,en;q=0.8",
+		    "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3"
+		};
+		// Устанавливаем Accept-Language
+		string acceptLanguage2 = acceptLanguageSet2[ra.Next(0, acceptLanguageSet2.Length)].ToString();
+		project.Profile.AcceptLanguage = acceptLanguage2;
+		// Устанавливаем настройки языка
+		project.Profile.UserAgentBrowserLanguage = acceptLanguage2.Substring(0, acceptLanguage2.IndexOf(','));
+		project.Profile.UserAgentLanguage = acceptLanguage2.Substring(0, acceptLanguage2.IndexOf(','));
+	} else {
+		Random Ra = new Random();
+		string[] acceptLanguageSet3 = {
+				"en-US,en;q=0.5"
+		};
+		string acceptLanguage3 = acceptLanguageSet3[Ra.Next(0, acceptLanguageSet3.Length)].ToString();
+		project.Profile.AcceptLanguage = acceptLanguage3;
+		// Устанавливаем настройки языка
+		project.Profile.UserAgentBrowserLanguage = acceptLanguage3.Substring(0, acceptLanguage3.IndexOf(','));
+		project.Profile.UserAgentLanguage = acceptLanguage3.Substring(0, acceptLanguage3.IndexOf(','));
+	}
+	instance.SetProxy("", false, true, true);
+}
+// Выбираем случайную версию Firefox
+string version = Macros.TextProcessing.Spintax("{38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53}");
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+
+//Формируем набор buildID нашего Firefox (у каждой версии свой) [Идея хранения позаимствована у doc'a, за что ему большая благодарность!]
+Dictionary <string, string> buildIDSet = new Dictionary <string, string>();
+buildIDSet.Add("53", "20170413192749");
+buildIDSet.Add("52", "20170316213829");
+buildIDSet.Add("51", "20170125094131");
+buildIDSet.Add("50", "20161104212021");
+buildIDSet.Add("49", "20161019084923");
+buildIDSet.Add("48", "20160817112116");
+buildIDSet.Add("47", "20160623154057");
+buildIDSet.Add("46", "20160502172042");
+buildIDSet.Add("45", "20160905130425");
+buildIDSet.Add("44", "20160210153822");
+buildIDSet.Add("43", "20160105164030");
+buildIDSet.Add("42", "20151029151421");
+buildIDSet.Add("41", "20151014143721");
+buildIDSet.Add("40", "20150812163655");
+buildIDSet.Add("39", "20150618135210");
+buildIDSet.Add("38", "20150513174244");
+ 
+instance.ShowNavigatorField(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.BuildId);
+// Устанавливаем BuildID
+instance.SetHeader(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.BuildId, buildIDSet[version]);
+ 
+// Формируем набор версий операционной системы Windows
+// 6.0 Windows Vista
+// 6.1 Windows 7
+// 6.2 Windows 8
+// 6.3 Windows 8.1
+// 10.0 Windows 10
+string winOC = Macros.TextProcessing.Spintax("{6.0|6.1|6.2|6.3|10.0}");
+string platform = Macros.TextProcessing.Spintax("{Win32|Win64}");
+ 
+// Определяем "битность" самого приложения
+string platformApp = string.Empty;
+if(platform=="Win32"){
+    platformApp = Macros.TextProcessing.Spintax("{; WOW64|}");
+} else {
+    platformApp = "; Win64; x64";
+}
+// Устанавливаем Useragent
+project.Profile.UserAgent = string.Format("Mozilla/5.0 (Windows NT {0}{1}; rv:{2}.0) Gecko/20100101 Firefox/{2}.0", winOC, platformApp, version);
+project.Profile.UserAgentAppVersion = "5.0 (Windows)";
+project.Profile.UserAgentAppName = "Netscape";
+project.Profile.UserAgentAppCodeName = "Mozilla";
+project.Profile.UserAgentProduct = "Gecko";
+project.Profile.UserAgentProductSub = "20100101";
+ 
+// OC
+project.Profile.UserAgentOsCpu = string.Format("Windows NT {0}{1}", winOC, platformApp);
+project.Profile.UserAgentPlatform = platform;
+
+// Формируем набор популярных десктопных разрешений [Идея хранения позаимствована у doc'a, за что ему большая благодарность!]
+int [,] resolutionSet = {
+    {2880, 1800},
+    {2560, 1600},
+    {2560, 1440},
+    {1920, 1200},
+    {1920, 1080},
+    {1680, 1050},
+    {1600, 1200},
+    {1600, 900},
+    {1440, 900},
+    {1366, 768},
+    {1360, 768},
+    {1280, 1024},
+    {1280, 800},
+    {1280, 768},
+    {1152, 864},
+    {1080, 1920},
+    {1024, 768}
+};
+// Получаем рандомное разрешение и устанавливаем
+int resolution = rndGenerator.Next(resolutionSet.Length/2);
+project.Profile.ScreenSizeWidth = resolutionSet[resolution, 0];
+project.Profile.ScreenSizeHeight = resolutionSet[resolution, 1];
+instance.SetWindowSize(project.Profile.ScreenSizeWidth, project.Profile.ScreenSizeHeight);
+
+// Видимая область
+project.Profile.AvailScreenWidth = project.Profile.ScreenSizeWidth-17;
+project.Profile.AvailScreenHeight = project.Profile.ScreenSizeHeight-40;
+// Глубина цвета монитора (Color Depth)
+// [Чуть позже будет обновление механизма установки этого параметра]
+instance.SetScreenPreference("screen_color_depth", 24);
+
+// Формируем набор возможных вариантов
+string cpu = Macros.TextProcessing.Spintax("{2|4|6|8}");
+ if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+instance.ShowNavigatorField(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.HardwareConcurrency);
+// Устанавливаем рандомное кол-во ядер процессора
+instance.SetHeader(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.HardwareConcurrency, cpu);
+
+instance.SetBrowserPreference("dom.w3c_touch_events.enabled", 1); // Включаем сенсорные события
+instance.ShowNavigatorField(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.MaxTouchPoints);
+instance.SetHeader(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.MaxTouchPoints, "5"); // Устанавливаем 5 (например) максимальных одновременных касаний.
+
+//instance.ActiveTab.PageScale = rndGenerator.Next(90,150); // Устанавливаем Pixel Ratio в 150%
+
+instance.SetBrowserPreference("dom.storage.enabled", false);
+
+instance.SetBrowserPreference("dom.indexedDB.enabled", false);
+
+int ip = 192;
+int ip1 = 168;
+int ip2 = rndGenerator.Next(0,1);
+int ip3 = rndGenerator.Next(1,255);
+string proxys = ip.ToString()+"."+ip1.ToString()+"."+ip2.ToString()+"."+ip3.ToString(); // Укажите здесь желаемый адрес, который Вы хотите подсунуть WebRTC вместо реального (локального).
+instance.WebRTCWorkMode = ZennoLab.InterfacesLibrary.Enums.Browser.WebRTCMode.Emulate;
+instance.SetWebRTCAdresses(proxys);
+instance.ShowNavigatorField(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.DoNotTrack);
+instance.SetHeader(ZennoLab.InterfacesLibrary.Enums.Browser.NavigatorField.DoNotTrack, "1"); // Включает Do Not Track
+instance.SetBrowserPreference("webgl.disabled", true);
+//instance.SetBrowserPreference("webgl.enable-webgl2", false); // WebGL 2.0 не поддерживается текущей версией движка Mozilla Firefox, используемой в ZennoPoster 5.11.1.0
+instance.SetBrowserPreference("webgl.disable-extensions", true);
+instance.SetBrowserPreference("webgl.min_capability_mode", true);
+List<string> lstTiff = new List<string>() {
+	"Arial.ttf",
+	"time new roman.ttf",
+	"Verdana.ttf",
+	"Tahoma.ttf",
+};
+string nameFont = string.Empty;
+int rnd = rndGenerator.Next(0, lstTiff.Count);
+nameFont = lstTiff[rnd];
+CommonCode.Fonts.SetupFont(project, nameFont, @"C:\Fonts\"); // Установка шрифта. 3-й аргумент это директория, в которой он находится.
+
+var handle = AutoItX.WinGetHandle("Technitium MAC Address Changer v6 - by Shreyas Zare");
+var listview = AutoItX.ControlGetHandle(handle, "[CLASS:ListView20WndClass; INSTANCE:10]");
+AutoItX.WinActivate(handle);
+var count = AutoItX.ControlListView(handle, listview, "GetItemCount", "", "");
+AutoItX.ControlListView(handle, listview, "Select", "0", "1");
+ 
+var randomBtn = AutoItX.ControlGetHandle(handle, "ThunderRT6CommandButton7");
+AutoItX.ControlClick(handle, randomBtn);
+ 
+var changeBtn = AutoItX.ControlGetHandle(handle, "ThunderRT6CommandButton6");
+AutoItX.ControlClick(handle, changeBtn);
+string strProxyUsed = ZennoPoster.HttpGet("https://www.google.com/", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.HeaderOnly, 30000,
+	"");
+//if (!strProxyUsed.Contains("200 OK") ||
+//	!strProxyUsed.Contains("302")) {
+//	strProxy=string.Empty;
+//	project.Variables["proxy"].Value = string.Empty;
+//	throw new Exception("Прокси невалидные");
+//}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+IZennoList lstSites = project.Lists["sites"];
+var tblRegAkk = project.Tables["multiakk"];
+if (lstSites.Count==0) {
+	project.SendInfoToLog("Добавьте в список сайтов сайты и запустите снова",true);
+	return "oki";
+}
+// Получаю GenHistory
+string GenSites = string.Empty;
+List<string> lstReCaptchaGnizer = new List<string>(); //Создадим временный список
+string strResultFileName = String.Empty; //Объявим переменную, в которую будет помещён путь к файлу
+string strSourceReCaptchaGnizer = project.Directory + @"\Facebook Ultimate Bot v.3.0\";
+lstReCaptchaGnizer.AddRange(Directory.GetFiles(strSourceReCaptchaGnizer, "*.xmlz", SearchOption.AllDirectories));
+for (int v=0; v<lstReCaptchaGnizer.Count; v++) {
+	if (lstReCaptchaGnizer.Count==0) break;
+	strResultFileName = lstReCaptchaGnizer[0];
+	lstReCaptchaGnizer.RemoveAt(0);
+	if (strResultFileName.Contains("GenSites")) {
+		GenSites = Path.Combine(strResultFileName);
+		if(!File.Exists(GenSites)) {
+		    throw new Exception(String.Format("Шаблон GenSites не найден: {0}", GenSites));
+		}
+		break;
+	}
+}
+var mapVars = new List<Tuple<string, string>>();
+mapVars.Add(new Tuple<string, string>("java", "java"));  // proxy - переменная в текущем проекте, IN_proxy - переменная в ReCaptchaGnizer
+
+// Регаю акк на маил.ру
+Random regRandom = new Random(); //если регистрации будут в цикле, тот эта строка должна остаться ВНЕ цикла (иначе будут генериться одни и те же "случайные" числа)
+
+int intGoodChecksNeeded = 7; //количество зелёных галочек, которые должны присутствовать при успешной регистрации (в англоязычном интерфейсе поле City отсутствует, в этом случае 6)
+
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+//Распарсиваю фото по имени и фамилии
+string strQueryPhrase = project.Profile.Name+" "+project.Profile.Surname;
+string strBestCriteria = "img_size"; //Критерий выбора наилучшей картинки: file_size - размер в килобайтах; img_size - размер в пикселах
+bool blnOnlyOrigs = false; //Если true, то при выборе наилучшего варианта картинки будут учитываться только оригиналы
+int pages = 1;
+int intMaxResultPages=pages; //сколько страниц выдачи парсить
+
+Regex rxHttpStatus = new Regex(@"(?<=HTTP/1\.1\ )\d*", RegexOptions.RightToLeft);
+Regex rxCookies = new Regex(@"(?<=Set-Cookie:\ ).*?(?=;)");
+Regex rxImageJSON = new Regex(@"(?<=data-bem=')\{""serp-item"":.*?}}");
+Regex rxFileNameFromUrl = new Regex(@"([^\/]+)(?=$)"); //(?=[^/]+\.\w{3,4}$).+
+
+string strUserAgent = "UserAgent: Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36";
+
+int intImageNumber = 0; //переменная для сквозной нумерации картинок
+string strCookies = String.Empty;
+
+bool blnMyTel = Convert.ToBoolean(project.Variables["blnMyTel"].Value);
+string strMyTel = project.Variables["myTel"].Value;
+
+// беру фотки из папки other и помещаю их в папку с фотками профиля 1 штуку с удалением из общей папки
+Directory.CreateDirectory(project.Directory + @"\Facebook Ultimate Bot v.3.0\reg_img\"+project.Profile.Name+" "+project.Profile.Surname+"\\");
+//List<string> lstImgProfile = new List<string>(); //Создадим временный список
+//strResultFileName = project.Directory + @"\Facebook Ultimate Bot v.3.0\reg_img\"+project.Profile.Name+" "+project.Profile.Surname+"\\";
+//lstImgProfile.AddRange(Directory.GetFiles(strResultFileName));
+//int RND1 = rndGenerator.Next(0, lstImgProfile.Count);
+//if (lstImgProfile.Count==0) {
+//	project.SendInfoToLog("Закончились картинки, добавьте картинки в папку Facebook Ultimate Bot v.3.0\\reg_img\\Other и запустите бота снова",true);
+//	return "oki";
+//}
+//strBannerPhotoAkk = lstImgProfile[RND1];
+//lstImgProfile.RemoveAt(RND1);
+//strTargetFolder = project.Directory + @"\Facebook Ultimate Bot v.3.0\reg_img\"+project.Profile.Name+" "+project.Profile.Surname+"\\";
+//if (!File.Exists(strBannerPhotoAkk)) {
+//	project.SendErrorToLog("Файл для копирования не найден: " + strBannerPhotoAkk);
+//	throw new Exception("Ошибка");
+//}
+//if (!Directory.Exists(strTargetFolder)) {
+//	project.SendErrorToLog("Папка назначения не найдена: " + strTargetFolder);
+//	throw new Exception("Ошибка");
+//}
+//
+//File.Move(strBannerPhotoAkk, strTargetFolder + new FileInfo(strBannerPhotoAkk).Name);
+//File.Delete(strBannerPhotoAkk);
+string strMailPath = project.Variables["pathmail"].Value;
+if (blnRegAkk) {
+	goto rega;
+} else {
+	if (blnTelInstance) {
+		goto rega;
+	}
+	if (blnMyTel) {
+		if (strMyTel==string.Empty) {
+			throw new Exception("Введите свой номер телефона во входные настройки и повторите попытку запуска снова");
+		}
+		goto rega;
+	}
+	if (strMailPath==string.Empty || lstMail.Count==0) {
+		if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		project.SendInfoToLog("Регистрируем ящик для профиля: " + project.Profile.Name + " " + project.Profile.Surname, true);
+		instance.ActiveTab.Navigate("https://account.mail.ru/signup");
+		Thread.Sleep(rndGenerator.Next(5, 10)*1000);
+		instance.WaitFieldEmulationDelay();
+		HtmlElement hu = instance.ActiveTab.GetDocumentByAddress("0").FindElementById("errorTryAgain");
+		instance.WaitFieldEmulationDelay();
+		hu.RiseEvent("click", instance.EmulationLevel);
+		instance.ActiveTab.WaitDownloading();
+		project.ExecuteProject(GenSites, mapVars, true, true);
+
+		//заполняем имя-фамилию
+		if (!instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'firstname-row')]/descendant::input", 0).IsVoid) {
+			instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'firstname-row')]/descendant::input", 0).SetValue(project.Profile.Name, "Middle");
+			instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'lastname-row')]/descendant::input", 0).SetValue(project.Profile.Surname, "Middle");
+			Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+		} else {
+			instance.ActiveTab.FindElementByXPath("//input[contains(@name, 'firstname')]", 0).SetValue(project.Profile.Name, "Middle");
+			instance.ActiveTab.FindElementByXPath("//input[contains(@name, 'lastname')]", 0).SetValue(project.Profile.Surname, "Middle");
+			Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+		}
+		for (int hd=0; hd<10; hd++) {
+			//заполняем дату рождения
+			if (!instance.ActiveTab.FindElementByXPath("//select[contains(@class, 'qc-select-month')]", 0).IsVoid) {
+				instance.ActiveTab.FindElementByXPath("//select[contains(@class, 'qc-select-month')]", 0).SetValue(project.Profile.BornMonth.ToString(), "Middle");
+				Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+				int intYearPosition1 = project.Profile.Age-2; //получаем позицию года рождения в списке
+				instance.ActiveTab.FindElementByXPath("//select[contains(@class, 'qc-select-year')]", 0).SetAttribute("value", intYearPosition1.ToString());
+				Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+				instance.ActiveTab.FindElementByXPath("//select[contains(@class, 'qc-select-day')]", 0).SetValue(project.Profile.BornDay.ToString(), "Middle");
+			} else {
+				int intYearPosition = project.Profile.Age-2; //получаем позицию года рождения в списке
+				instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'b-date__year')]/descendant::a", intYearPosition).Click();
+				instance.ActiveTab.FindElementByXPath("//select[contains(@name, 'year')]/option", 0).SetValue(intYearPosition.ToString(),"Full");
+				Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+				instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'b-date__month')]/descendant::span[contains(@class, 'b-dropdown__ctrl__text')]", 0).Click();
+				Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+				int intMonth = new Random().Next(1,10);
+				instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'b-date__month')]/descendant::a", intMonth).Click();
+				Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+				instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'b-date__day')]/descendant::a:span[contains(@class, 'b-dropdown__ctrl__text')]", 0).Click();
+				Thread.Sleep(rndGenerator.Next(1, 3)*1000);
+				instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'b-date__day')]/descendant::a", project.Profile.BornDay).Click();
+			}
+			if (Tab1.FindElementByXPath("//div[contains(@class,'error_visible')]",0).IsVoid) {
+				break;
+			}
+		}
+		if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		//Заполняем город
+		if (!instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'city-row')]/descendant::input", 0).IsVoid) {
+			if(strTownType=="из профиля"){
+				int intTownFirstSymbolCode = (int)project.Profile.Town.ToCharArray()[0];
+				if (intTownFirstSymbolCode<1040||intTownFirstSymbolCode>1103) {
+					//если имя города - не кириллическое - выберем город по ip
+					strTownType="по ip";
+				}else{
+					instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'city-row')]/descendant::input", 0).SetValue(project.Profile.Town, "Middle");
+				}
+			}
+			instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'city-row')]/descendant::input", 0).Click();
+
+			for (i=0; i<10; i++) {
+				HtmlElementCollection elTownVariants = instance.ActiveTab.FindElementsByXPath("//div[contains(@class, 'geo_popup')]/descendant::div[@class='item']");
+				if (elTownVariants.Count>1) {
+					if(strTownType!="случайный"){
+						elTownVariants.GetByNumber(0).Click();
+					}else{
+						elTownVariants.GetByNumber(rndGenerator.Next(0, elTownVariants.Count)).Click();
+					}
+					break;
+				}
+				Thread.Sleep(rndGenerator.Next(1, 10)*1000);
+			}
+		} 
+		if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		//указываем пол
+		if (project.Profile.Sex==ProfileSex.Male) {
+			instance.ActiveTab.FindElementByXPath("//input[@id='man1']", 0).Click();
+			instance.ActiveTab.FindElementByXPath("//input[@name='sex']", 0).Click();	
+		}else{
+			instance.ActiveTab.FindElementByXPath("//input[@id='man2']", 0).Click();
+			instance.ActiveTab.FindElementByXPath("//input[@name='sex']", 1).Click();
+		}
+		if (!instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'b-email__name')]", 0).IsVoid) {
+			instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'b-email__name')]", 0).SetValue(project.Profile.Name+project.Profile.Surname+project.Profile.Age, "Middle");
+		}
+		//Выбираем почтовый домен (приведённый ниже код демонстрирует, как выбрать значение в списке при неработающем третьем параметре для .SetValue
+		HtmlElementCollection colDomainVariants = instance.ActiveTab.FindElementsByXPath("//select[@name='RegistrationDomain']/option");
+		int intDomainPosition = 0;
+		if (strMailDomain=="случайный") {
+			intDomainPosition = rndGenerator.Next(0, colDomainVariants.Count-1);
+		}else{
+			for (i=0; i<colDomainVariants.Count; i++) {
+				if (colDomainVariants.GetByNumber(i).GetAttribute("value")==strMailDomain) {
+					intDomainPosition = i;
+					break;
+				}
+			}
+		}
+		instance.ActiveTab.FindElementByXPath("//select[@name='RegistrationDomain']", 0).SetAttribute("value", intDomainPosition.ToString());
+		//Выбираем адрес ящика
+		if (!instance.ActiveTab.FindElementByXPath("//div[@id='loginField']/descendant::input", 0).IsVoid) {
+		instance.ActiveTab.FindElementByXPath("//div[@id='loginField']/descendant::input", 0).Click();
+			for (i=0; i<10; i++) {
+				string strMailVariantsXPath = String.Empty;
+				if (strMailDomain=="случайный"){
+					strMailVariantsXPath = "//div[contains(@class, 'geo_popup')]/descendant::div[@class='item']/a";
+				}else{
+					strMailVariantsXPath = "//div[contains(@class, 'geo_popup')]/descendant::div[@class='item']/a[contains(text(), '" + strMailDomain + "')]"; //собираем в семейство только те предлагаемые адреса, которые относятся к нашему домену
+				}
+				HtmlElementCollection elMailVariants = instance.ActiveTab.FindElementsByXPath(strMailVariantsXPath);
+				if (elMailVariants.Count>1) {
+					elMailVariants.GetByNumber(rndGenerator.Next(0, elMailVariants.Count)).Click();
+					break;
+				}
+				Thread.Sleep(rndGenerator.Next(1, 10)*1000);
+			}
+			//Если выбрать адрес из всплывающей подсказки не удалось, заполняем из логина и 10 раз перегенерируем при необходимости
+			if(Convert.ToInt32(instance.ActiveTab.FindElementByXPath("//div[@id='loginField']/descendant::span[@class='success']", 0).GetAttribute("width"))==0) {
+				string strLoginForMail = project.Profile.Login;
+				for (i=0; i<10; i++) {
+					instance.ActiveTab.FindElementByXPath("//div[@id='loginField']/descendant::input", 0).SetValue(strLoginForMail, "Middle"); //заполняем "Почтовый ящик" текущим логином
+					Thread.Sleep(rndGenerator.Next(1, 10)*1000);
+					if(Convert.ToInt32(instance.ActiveTab.FindElementByXPath("//div[@id='loginField']/descendant::span[@class='success']", 0).GetAttribute("width"))==0){
+						//генерируем новый логин профиля
+						string[] arrDelimiters=new String[]{"",".","_","-"};
+						string strDelimiter = arrDelimiters[rndGenerator.Next(0,arrDelimiters.Length-1)];
+						strLoginForMail = project.Profile.RegenerateLogin("[Lat|[RndNum|3|5]]" + strDelimiter + project.Profile.BornYear);
+						if (blnChangeLogin) project.Profile.Login=strLoginForMail;
+					}else{
+						break;
+					}
+				}
+			}
+		} else {
+			instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'email__name')]/input", 0).Click();
+			Thread.Sleep(4000);
+			HtmlElementCollection elName = Tab1.FindElementsByXPath("//div[@class='b-list__item__content']");
+			if (!Tab1.FindElementByXPath("//div[@class='b-list__item__content']",0).IsVoid) {
+				Tab1.FindElementByXPath("//div[@class='b-list__item__content']",0).Click();
+			} else {
+				instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'email__name')]/input", 0).SetValue(project.Profile.NickName+project.Profile.Age, "Middle");
+				instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'email__domain')]/descendant::a", 0).Click();
+			}
+			Thread.Sleep(rndGenerator.Next(5, 10)*1000);
+			strSelectedAccount = instance.ActiveTab.FindElementByXPath("//input[contains(@class, 'custom-domain')]", 0).GetValue();
+			if (strSelectedAccount==string.Empty) {
+				instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'email__name')]/input", 0).Click();
+				instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'email__name')]/input", 0).SetValue(project.Profile.NickName+project.Profile.Age, "Middle");
+				instance.ActiveTab.FindElementByXPath("//span[contains(@class, 'email__domain')]/descendant::a", 0).Click();
+			}
+		}
+		strSelectedAccount = instance.ActiveTab.FindElementByXPath("//input[contains(@class, 'custom-domain')]", 0).GetValue();
+		if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		if (strSelectedAccount==string.Empty) strSelectedAccount = instance.ActiveTab.FindElementByXPath("//div[@id='loginField']/descendant::input", 0).GetValue()+"@mail.ru";
+		//заполняем пароль
+		if (!instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'pass-row')]/descendant::input", 0).IsVoid) {
+			instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'pass-row')]/descendant::input", 0).SetValue(project.Profile.Password, "Middle");
+			instance.ActiveTab.FindElementByXPath("//div[contains(@class, 'passverify-row')]/descendant::input", 0).SetValue(project.Profile.Password, "Middle");
+		} else {
+			instance.ActiveTab.FindElementByXPath("//input[contains(@name, 'password')]", 0).SetValue(project.Profile.Password, "Middle");
+			instance.ActiveTab.FindElementByXPath("//input[contains(@name, 'password_retry')]", 0).SetValue(project.Profile.Password, "Middle");
+		}
+		strSelectedAccount = strSelectedAccount.Trim().ToLower();
+		if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		Thread.Sleep(5000);
+		if (!instance.ActiveTab.FindElementByXPath("//a[contains(@id,'noPhoneLink')]",0).IsVoid
+			|| !instance.ActiveTab.FindElementByXPath("//a[contains(@class,'js-signup-simple-link')]",0).IsVoid) {
+			instance.ActiveTab.FindElementByXPath("//a[@id='noPhoneLink']", 0).Click(); //Кликаем по "нет телефона"
+			instance.ActiveTab.FindElementByXPath("//a[contains(@class,'js-signup-simple-link')]",0).Click();
+			Thread.Sleep(rndGenerator.Next(2, 4)*1000);
+			instance.ActiveTab.WaitDownloading();
+			//Разгадываем капчу
+			instance.ActiveTab.FindElementByXPath("//button[contains(@class, 'btn_signup')]", 0).Click();
+			instance.ActiveTab.FindElementByXPath("//button[contains(@class, 'btn_responsive')]", 0).Click();
+			instance.ActiveTab.WaitDownloading();
+			Thread.Sleep(rndGenerator.Next(2, 4)*1000);
+			if (!instance.ActiveTab.FindElementByXPath("//img[contains(@class,'captcha')]", 0).IsVoid) {
+				for (i=0; i<3; i++) {
+					//5 попыток на разгадывание
+//					instance.ActiveTab.FindElementByXPath("//button[contains(@class, 'btn_signup')]", 0).Click();
+//					instance.ActiveTab.FindElementByXPath("//button[contains(@class, 'btn_responsive')]", 0).Click();
+					instance.ActiveTab.WaitDownloading();
+					Thread.Sleep(rndGenerator.Next(2, 4)*1000);
+					HtmlElement elCaptcha = instance.ActiveTab.FindElementByXPath("//img[contains(@class,'captcha')]", 0);
+					string[] arrCaptchaResult = Regex.Split(ZennoPoster.CaptchaRecognition(strCaptchaService, elCaptcha.DrawToBitmap(true), ""), Regex.Escape("-|-")); //в первом элементе массива - код из SMS, во втором - badreport link
+					if (arrCaptchaResult[0]=="sorry") {
+						Thread.Sleep(rndGenerator.Next(2, 4)*1000);
+						continue;
+					}else{
+						project.SendInfoToLog("Результат разгадывания капчи: " + arrCaptchaResult[0], true);
+					}
+					if (!instance.ActiveTab.FindElementByXPath("//img[@class='js-captchaImage']/preceding::input[@name='code']", 0).IsVoid) {
+						instance.ActiveTab.FindElementByXPath("//img[@class='js-captchaImage']/preceding::input[@name='code']", 0).SetValue(arrCaptchaResult[0], "Middle"); //вводим результат распознавания
+						instance.ActiveTab.FindElementByXPath("//img[@class='js-captchaImage']/following::button[contains(@class,'confirm-ok')]", 0).Click(); //кликаем по "ОК"
+						instance.ActiveTab.WaitDownloading();
+					} else {
+						instance.ActiveTab.FindElementByXPath("//input[@name='capcha']", 0).SetValue(arrCaptchaResult[0], "Middle"); //вводим результат распознавания
+						instance.ActiveTab.FindElementByXPath("//button[contains(@class, 'btn btn_main btn_stylish btn_responsive')]", 0).Click(); //кликаем по "ОК"
+					}
+					Thread.Sleep(5000);
+					if (!instance.ActiveTab.FindElementByXPath("//input[@name='capcha']", 0).IsVoid) {
+						strGetResultHeaderBody = ZennoPoster.HttpGet(arrCaptchaResult[1], "", "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly);
+						continue;
+					}
+					if (!instance.ActiveTab.FindElementByXPath("//img[@class='js-captchaImage']/preceding::input[@name='code']", 0).IsVoid) {
+						strGetResultHeaderBody = ZennoPoster.HttpGet(arrCaptchaResult[1], "", "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly);
+						continue;
+					}
+//					if (!instance.ActiveTab.FindElementByXPath("//i[contains(@id, 'PH_user-emaial')]",0).IsVoid) break;
+					if (instance.ActiveTab.FindElementByXPath("//input[@name='capcha']", 0).IsVoid) {
+						//капча разгадана верно
+						project.SendInfoToLog("Каптча успешно разгадана", true);
+						break;
+					}else{
+						//репортим сервису о неправильно разгаданной каптче
+						strGetResultHeaderBody = ZennoPoster.HttpGet(arrCaptchaResult[1], "", "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly);
+					}
+				}
+			}
+		}
+		if (!Tab1.FindElementByXPath("//div[contains(@class, 'b-form-field__errors')]",0).IsVoid ||
+			!Tab1.FindElementByXPath("//input[contains(@name, 'phone.phone')]",0).IsVoid) {
+			if (!instance.ActiveTab.FindElementByXPath("//input[contains(@name,'capcha')]", 0).IsVoid) {
+				throw new Exception("Не появилась капча при реге mail.ru");
+			}
+			switch(strSmsService) {
+				case "SmsActivate.dll":
+					strServiseSite = "ma";
+					strOperator = "any";
+					break;
+				case "SmsReg.dll":
+					strServiseSite = "mailru";
+					strOperator = "all";
+					break;
+				case "SmsVk.dll":
+					strServiseSite = "ma";
+					strOperator = "";
+					break;
+				case "SimSmsOrg.dll":
+					strServiseSite = "opt33";
+					strOperator = "";
+					break;
+				case "GetSmsOnline.dll":
+					strServiseSite = "ma";
+					strOperator = "or";
+					break;
+				case "GiveSms.dll":
+					strServiseSite = "ma";
+					strOperator = "any";
+					break;
+			}
+			lock (SyncObjects.InputSyncer) {
+				try {
+					strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+				} catch {
+					project.SendInfoToLog("Сервис смс активации дайл сбой, пробую еще рез обратиться",true);
+					strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+				}		
+			}
+			strPhoneNumber = "+" + strPhoneNumber;
+			project.SendInfoToLog("Получен телефонный номер: " + strPhoneNumber, true);
+			//сообщаем сервису, что в ближайшие 2 минуты на номер придёт смс от указанного нами сервиса
+			lock (SyncObjects.InputSyncer) {
+				strSetStatusResult = ZennoPoster.Sms.SetStatus(strSmsService, strRegistrationID, InterfacesLibrary.SmsService.Enums.SmsServiceStatus.Ready);
+			}
+			//получаем код подтверждения или сообщаем об ошибке
+			instance.ActiveTab.FindElementByXPath("//input[contains(@class,'phone')]", 0).SetValue(strPhoneNumber, instance.EmulationLevel); //заполняем номер телефона в поле
+			instance.ActiveTab.FindElementByXPath("//button[contains(@class, 'btn_signup')]", 0).Click();
+			instance.ActiveTab.FindElementByXPath("//button[contains(@class, 'btn_responsive')]", 0).Click();
+			Tab1.WaitDownloading();
+			Thread.Sleep(5000);
+			//здесь можно сделать дополнительное ожидание, но работает и так.
+			while (true) {
+				strConfirmationCode = ZennoPoster.Sms.GetStatus(strSmsService, strRegistrationID);
+				if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+				if (strConfirmationCode.Contains("wait")||strConfirmationCode.Contains("Wait")) {
+					continue;
+				} else {
+					break;
+				}
+			}
+			//заполняем поле кодом подтверждения
+			instance.ActiveTab.FindElementByXPath("//input[@id='signupsms_code']", 0).SetValue(strConfirmationCode, instance.EmulationLevel);
+			instance.ActiveTab.FindElementByXPath("//input[contains(@class,'input_responsive')]", 0).SetValue(strConfirmationCode, instance.EmulationLevel);
+			project.SendInfoToLog("Получен код подтверждения: " + strConfirmationCode, true);
+			//кликаем по кнопке "Готово"
+			instance.ActiveTab.FindElementByXPath("//a[contains(@class,'nosmslink')]/preceding-sibling::button[contains(@class,'confirm-ok')]", 0).Click();
+			instance.ActiveTab.FindElementByXPath("//button[contains(@class,'btn_responsive')]", 0).Click();
+		}
+		//Проверяем успешность регистрации ящика (15 секунд)
+		Tab1.WaitDownloading();
+		Thread.Sleep(15000);
+		for(i=0; i<15; i++) {
+			strRegisteredMail = Tab1.FindElementByXPath("//i[@id='PH_user-email']", 0).GetAttribute("InnerHtml");
+			strRegisteredMail = strRegisteredMail.Trim().ToLower();
+			if (strRegisteredMail.Contains(strSelectedAccount)){
+				project.SendInfoToLog(String.Format("Успешно зарегистрирован ящик {0} для профиля {1} {2}", strRegisteredMail, project.Profile.Name, project.Profile.Surname), true);
+				string AccPass = project.Profile.Password;
+				project.Variables["akk"].Value = strSelectedAccount + ":" + project.Profile.Password;
+				Global.SpecialForms.AlertNotificator.Instance.DisplayAlert("Инфо", "Успешно зарегистрирован аккаунт на mail.ru", null, 15000);
+				break;
+			}else{
+				Thread.Sleep(1000);
+			}
+		}
+		if (strRegisteredMail!=strSelectedAccount) {
+			project.SendErrorToLog(String.Format("STOP: неизвестная ошибка при регистрации ящика для профиля  {0} {1}",  project.Profile.Name, project.Profile.Surname), true);
+			return "error";
+		}
+	} else {
+		if (lstMail.Count==0) {
+			throw new Exception("Список с e-mail пуст, завершаю работу");
+		}
+		strMailPath = lstMail[0];
+		lstMail.RemoveAt(0);
+		strLogin = new Regex(@".*(?=:)").Match(strMailPath).Value;
+		strPass = new Regex(@"(?<=:).*").Match(strMailPath).Value;
+	}
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+rega:
+instance.UseAdds = false; 
+instance.UsePlugins = false;
+instance.AllowPopUp = false; 
+// Получаем список плагинов
+var PluginList = instance.GetPlugins().ToList();
+// По очерёдно в цикле скрываем все плагины
+for (i=0; i < PluginList.Count; i++){
+   instance.HidePlugin(PluginList[i]);
+}
+string strTelPhone = string.Empty;
+strRegisteredMail = project.Variables["akk"].Value;
+int Rand = rndGenerator.Next(3,5);
+ReGul:
+for (i=0; i<Rand; i++) {
+	int Rando = rndGenerator.Next(0,lstSites.Count);
+	string URL = lstSites[Rando];
+	lstSites.RemoveAt(Rando);
+	Tab1.Navigate(URL, stTabURL);
+	instance.WaitFieldEmulationDelay();
+	he.RiseEvent("click", instance.EmulationLevel);
+	stTabURL = Tab1.URL;
+	Tab1.WaitDownloading();
+	project.ExecuteProject(GenSites, mapVars, true, true);
+	Thread.Sleep(rndGenerator.Next(5, 10)*1000);
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+//Эмуляция мыши - читает все заголовки на странице
+var rand = new Random();
+Tab1.FullEmulationMouseSetOptions(rand.Next(3,20), 5, rand.Next(5,10));
+string FBLink = string.Empty;
+int RGT = new Random().Next(0,4);
+if (RGT==4) {
+	Tab1.Navigate("https://www.google.com/",stTabURL);
+	Tab1.WaitDownloading();
+	project.ExecuteProject(GenSites, mapVars, true, true);
+	Tab1.FindElementByXPath("//input[@id='uh-search-box']", 0).SetValue("Facebook Registration","Full");
+	instance.WaitFieldEmulationDelay();
+	// Эмулировать ввод текста
+	instance.SendText("{ENTER}", 15);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);
+	Tab1.WaitDownloading(); 
+	instance.WaitFieldEmulationDelay();
+	stTabURL = Tab1.URL;
+	Tab1.FindElementByXPath("//h3/a",0).Click();
+	FBLink = Tab1.FindElementByXPath("//h3/a",0).GetAttribute("href");
+	if (FBLink==string.Empty) {
+		FBLink = "https://www.facebook.com/";	
+	}
+	Tab1.FullEmulationMouseSetOptions(5,5,8);
+	var v3 = Tab1.FindElementByXPath(".//h2",0);    //Поиск заголовка поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v3, 30);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);    //Пауза 1 с
+	stTabURL = Tab1.URL;
+	//Снова меняем скорость (ещё медленнее, а-ля более внимательное чтение) и проводим мышкой по тексту поста
+	Tab1.FullEmulationMouseSetOptions(5,5,3);
+	var v4 = Tab1.FindElementByXPath(".//p",0);    //Поиск текста поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v4, 40);
+}
+if (RGT==0) {
+	Tab1.Navigate("https://www.google.com/",stTabURL);
+	Tab1.WaitDownloading();
+	project.ExecuteProject(GenSites, mapVars, true, true);
+	Tab1.FindElementByXPath("//input[@name='q']", 0).SetValue("Регистрация на Facebook","Full");
+	instance.WaitFieldEmulationDelay();
+	// Эмулировать ввод текста
+	instance.SendText("{ENTER}", 15);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);
+	Tab1.WaitDownloading(); 
+	instance.WaitFieldEmulationDelay();
+	stTabURL = Tab1.URL;
+	Tab1.FindElementByXPath("//h3/a",0).Click();
+	FBLink = Tab1.FindElementByXPath("//h3/a",0).GetAttribute("href");
+	if (FBLink==string.Empty) {
+		FBLink = "https://www.facebook.com/";	
+	}
+	Tab1.FullEmulationMouseSetOptions(5,5,8);
+	var v3 = Tab1.FindElementByXPath(".//h2",0);    //Поиск заголовка поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v3, 30);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);    //Пауза 1 с
+	stTabURL = Tab1.URL;
+	//Снова меняем скорость (ещё медленнее, а-ля более внимательное чтение) и проводим мышкой по тексту поста
+	Tab1.FullEmulationMouseSetOptions(5,5,3);
+	var v4 = Tab1.FindElementByXPath(".//p",0);    //Поиск текста поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v4, 40);
+}
+if (RGT==1) {
+	Tab1.Navigate("https://yandex.ru/",stTabURL);
+	Tab1.WaitDownloading();
+	project.ExecuteProject(GenSites, mapVars, true, true);
+	Tab1.FindElementByXPath("//input[@name='text']", 0).SetValue("Регистрация на Facebook","Full");
+	instance.WaitFieldEmulationDelay();
+	// Эмулировать ввод текста
+	instance.SendText("{ENTER}", 15);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);
+	Tab1.WaitDownloading(); 
+	instance.WaitFieldEmulationDelay();
+	stTabURL = Tab1.URL;
+	Tab1.FindElementByXPath("//h2[contains(@class, 'organic')]/a[contains(@class,'organic')]",0).Click();
+	FBLink = Tab1.FindElementByXPath("//h2[contains(@class, 'organic')]/a[contains(@class,'organic')]",0).GetAttribute("href");
+	Tab1.FullEmulationMouseSetOptions(5,5,8);
+	var v5 = Tab1.FindElementByXPath(".//h2",0);    //Поиск заголовка поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v5, 30);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);    //Пауза 1 с
+	stTabURL = Tab1.URL;
+	//Снова меняем скорость (ещё медленнее, а-ля более внимательное чтение) и проводим мышкой по тексту поста
+	Tab1.FullEmulationMouseSetOptions(5,5,3);
+	var v6 = Tab1.FindElementByXPath(".//p",0);    //Поиск текста поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v6, 40);
+
+}
+if (RGT==2) {
+	Tab1.Navigate("https://mail.ru/",stTabURL);
+	Tab1.WaitDownloading();
+	project.ExecuteProject(GenSites, mapVars, true, true);
+	Tab1.FindElementByXPath("//input[@name='q']", 0).SetValue("Регистрация на Facebook","Full");
+	instance.WaitFieldEmulationDelay();
+	// Эмулировать ввод текста
+	instance.SendText("{ENTER}", 15);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);
+	Tab1.WaitDownloading(); 
+	instance.WaitFieldEmulationDelay();
+	stTabURL = Tab1.URL;
+	Tab1.FindElementByXPath("//h3[contains(@class, 'result')]/a",0).Click();
+	FBLink = Tab1.FindElementByXPath("//h3[contains(@class, 'result')]/a",0).GetAttribute("href");
+	Tab1.FullEmulationMouseSetOptions(5,5,8);
+	var v1 = Tab1.FindElementByXPath(".//h2",0);    //Поиск заголовка поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v1, 30);
+	Thread.Sleep(rndGenerator.Next(1, 10)*1000);    //Пауза 1 с
+	stTabURL = Tab1.URL;
+	//Снова меняем скорость (ещё медленнее, а-ля более внимательное чтение) и проводим мышкой по тексту поста
+	Tab1.FullEmulationMouseSetOptions(5,5,3);
+	var v2 = Tab1.FindElementByXPath(".//p",0);    //Поиск текста поста
+	Tab1.FullEmulationMouseMoveAboveHtmlElement(v2, 40);
+}
+if (RGT==3) {
+	FBLink = "https://www.facebook.com/";
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+Tab1.Navigate(FBLink,stTabURL);
+instance.WaitFieldEmulationDelay();
+he.RiseEvent("click", instance.EmulationLevel);
+Tab1.WaitDownloading();
+project.ExecuteProject(GenSites, mapVars, true, true);
+
+var h1 = Tab1.FindElementByXPath(".//h1",0);
+Tab1.FullEmulationMouseMoveAboveHtmlElement(h1, 30);
+
+var h2 = Tab1.FindElementByXPath(".//h2",0);
+Tab1.FullEmulationMouseMoveAboveHtmlElement(h1, 30);
+
+var h22 = Tab1.FindElementByXPath(".//h22",1);
+Tab1.FullEmulationMouseMoveAboveHtmlElement(h22, 30);
+
+var p = Tab1.FindElementByXPath(".//p",0);
+Tab1.FullEmulationMouseMoveAboveHtmlElement(p, 30);
+int Rr = rand.Next(0,2);
+var A = Tab1.FindElementByXPath(".//div[contains(@class, 'pbm')]",Rr);
+Tab1.FullEmulationMouseMoveAboveHtmlElement(A, 30);
+
+// Заполняю поля авторизации
+wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+PauseBefore = rndGenerator.Next(0, 7500);
+PauseBetweenChecks = rndGenerator.Next(0, 7500);
+Timeout = rndGenerator.Next(15000, 30000);
+FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+SendTextMinDelay = rndGenerator.Next(0, 7500);
+SendTextMaxDelay = rndGenerator.Next(0, 7500);
+try {
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name, 'firstname')]", 0, project.Profile.Name);
+} catch {
+	Tab1.FindElementByXPath("//input[contains(@name, 'firstname')]",0).SetValue(project.Profile.Name, "Full");
+}
+wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+PauseBefore = rndGenerator.Next(0, 7500);
+PauseBetweenChecks = rndGenerator.Next(0, 7500);
+Timeout = rndGenerator.Next(15000, 30000);
+FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+SendTextMinDelay = rndGenerator.Next(0, 7500);
+SendTextMaxDelay = rndGenerator.Next(0, 7500);
+try {
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name, 'lastname')]", 0, project.Profile.Surname);
+} catch {
+	Tab1.FindElementByXPath("//input[contains(@name, 'lastname')]",0).SetValue(project.Profile.Surname, "Full");
+}
+if (blnRegAkk) {
+	//Выполняем SMS-активацию
+	switch(strSmsService) {
+		case "SmsActivate.dll":
+			strServiseSite = "fb";
+			strOperator = "any";
+			break;
+		case "SmsReg.dll":
+			strServiseSite = "facebook";
+			strOperator = "all";
+			break;
+		case "SmsVk.dll":
+			strServiseSite = "fb";
+			strOperator = "";
+			break;
+		case "SimSmsOrg.dll":
+			strServiseSite = "opt2";
+			strOperator = "";
+			break;
+		case "GetSmsOnline.dll":
+			strServiseSite = "fb";
+			strOperator = "or";
+			break;
+		case "GiveSms.dll":
+			strServiseSite = "fb";
+			strOperator = "any";
+			break;
+	}
+	if (strLogin==string.Empty) {
+		lock (SyncObjects.InputSyncer) {
+			try {
+				strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strLogin, strServiseSite,strOperator);
+			} catch {
+				project.SendInfoToLog("Сервис смс активации дайл сбой, пробую еще рез обратиться",true);
+				strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strLogin, strServiseSite,strOperator);
+			}	
+		}
+		project.SendInfoToLog("Получен телефонный номер: " + strLogin, true);
+		//сообщаем сервису, что в ближайшие 2 минуты на номер придёт смс от указанного нами сервиса
+		lock (SyncObjects.InputSyncer) {
+			strSetStatusResult = ZennoPoster.Sms.SetStatus(strSmsService, strRegistrationID, InterfacesLibrary.SmsService.Enums.SmsServiceStatus.Ready);
+		}
+	}
+} 
+if (blnMyTel) {
+	strLogin = strMyTel;
+	project.SendInfoToLog("Ввожу номер телефона "+strLogin,true);
+} else {
+	if (blnTelInstance) {
+		project.SendWarningToLog("Введите номер телефона",true);
+		while (true) {
+			strTelPhone = Tab1.FindElementByXPath("//input[contains(@name,'reg_email')]",0).GetAttribute("value");
+			if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+			if (strTelPhone==string.Empty) {
+				Thread.Sleep(5000);
+				continue;
+			} else {
+				project.SendWarningToLog("Получен номер телефона, ничего не трогайте я сам все дальше сделаю",true);
+				Thread.Sleep(10000);
+				break;
+			}
+		}
+	} else {
+		if (strLogin==string.Empty) {
+			strLogin = new Regex(@".*(?=:)").Match(strRegisteredMail).Value;
+			strPass = new Regex(@"(?<=:).*").Match(strRegisteredMail).Value;
+		}
+	}
+}
+wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+PauseBefore = rndGenerator.Next(0, 7500);
+PauseBetweenChecks = rndGenerator.Next(0, 7500);
+Timeout = rndGenerator.Next(15000, 30000);
+FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+SendTextMinDelay = rndGenerator.Next(0, 7500);
+SendTextMaxDelay = rndGenerator.Next(0, 7500);
+try {
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name, 'reg_email')]", 0, strLogin);
+} catch {
+	Tab1.FindElementByXPath("//input[contains(@name, 'reg_email')]",0).SetValue(strLogin, "Full");
+}
+wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+PauseBefore = rndGenerator.Next(0, 7500);
+PauseBetweenChecks = rndGenerator.Next(0, 7500);
+Timeout = rndGenerator.Next(15000, 30000);
+FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+SendTextMinDelay = rndGenerator.Next(0, 7500);
+SendTextMaxDelay = rndGenerator.Next(0, 7500);
+try {
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name, 'reg_passwd')]", 0, project.Profile.Password);
+} catch {
+	Tab1.FindElementByXPath("//input[contains(@name, 'reg_passwd')]",0).SetValue(project.Profile.Password, "Full");
+}
+wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+PauseBefore = rndGenerator.Next(0, 7500);
+PauseBetweenChecks = rndGenerator.Next(0, 7500);
+Timeout = rndGenerator.Next(15000, 30000);
+FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+SendTextMinDelay = rndGenerator.Next(0, 7500);
+SendTextMaxDelay = rndGenerator.Next(0, 7500);
+try {
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name, 'reg_email_confirmation')]", 0, strLogin);
+} catch {
+	Tab1.FindElementByXPath("//input[contains(@name, 'reg_email_confirmation')]",0).SetValue(strLogin, "Full");
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+string strDay = project.Profile.BornDay.ToString();
+if (strDay==string.Empty) {
+	strDay = project.Profile.BornDay.ToString();
+}
+HtmlElement Day = instance.ActiveTab.FindElementById("day");
+instance.WaitFieldEmulationDelay();
+Day.SetValue(strDay, instance.EmulationLevel, false);
+Thread.Sleep(rndGenerator.Next(2, 7)*1000);
+string strMonth = project.Variables["month"].Value;
+if (strMonth==string.Empty) {
+	strMonth = project.Profile.BornMonth.ToString();
+}
+HtmlElement Month = instance.ActiveTab.FindElementById("month");
+instance.WaitFieldEmulationDelay();
+Month.SetValue(strMonth, instance.EmulationLevel, false);
+Thread.Sleep(rndGenerator.Next(2, 7)*1000);
+int BornYear = new Random().Next(26,31);
+string strYear = BornYear.ToString();
+if (strYear==string.Empty) {
+	strYear = BornYear.ToString();
+}
+HtmlElement Year = instance.ActiveTab.FindElementById("year");
+instance.WaitFieldEmulationDelay();
+Year.SetValue(strYear, instance.EmulationLevel, false);
+if (project.Profile.Sex==ProfileSex.Male) {
+	try {
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		wHelper.ClickElementXPath(Tab1, true, null, "//input[contains(@name, 'sex')]", 1);
+	} catch {
+		Tab1.FindElementByXPath("//input[contains(@name, 'sex')]",1).Click();
+	}
+} else {
+	try {
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		wHelper.ClickElementXPath(Tab1, true, null, "//input[contains(@name, 'sex')]", 0);
+	} catch {
+		Tab1.FindElementByXPath("//input[contains(@name, 'sex')]",0).Click();
+	}
+}
+wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+PauseBefore = rndGenerator.Next(0, 7500);
+PauseBetweenChecks = rndGenerator.Next(0, 7500);
+Timeout = rndGenerator.Next(15000, 30000);
+FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+SendTextMinDelay = rndGenerator.Next(0, 7500);
+SendTextMaxDelay = rndGenerator.Next(0, 7500);
+try {
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name, 'websubmit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name, 'websubmit')]",0).Click();
+}
+Thread.Sleep(rndGenerator.Next(20, 30)*1000);
+Tab1.WaitDownloading();
+if (!Tab1.FindElementByXPath("//button[contains(@name, 'websubmit')]",0).IsVoid) {
+	project.SendInfoToLog("Не удалось заполнить форму регистрации, иду гулять по сайтам обратно",true);
+	Rand = rndGenerator.Next(5,12);
+	goto ReGul;
+}
+lock (SyncObjects.InputSyncer) {
+	// Разгадываем капчу если появилась
+	if (!Tab1.FindElementByXPath("//div[contains(@class,'captcha')]/img",0).IsVoid) {
+		for (i=0; i<5; i++) {
+			HtmlElement elCaptcha1 = instance.ActiveTab.FindElementByXPath("//div[contains(@class,'captcha')]/img", 0);
+			string[] arrCaptchaResult1 = Regex.Split(ZennoPoster.CaptchaRecognition(strCaptchaService, elCaptcha1.DrawToBitmap(true), ""), Regex.Escape("-|-"));
+			if (arrCaptchaResult1[0]=="sorry") {
+				Thread.Sleep(rndGenerator.Next(5, 10)*1000);
+				continue;
+			}else{
+				project.SendInfoToLog("Результат разгадывания капчи: " + arrCaptchaResult1[0], true);
+			}
+			Tab1.FindElementByXPath("//input[@id='captcha_response']",0).SetValue(arrCaptchaResult1[0],"Middle");
+			Tab1.FindElementByXPath("//div[@id='captcha_buttons']/descendant::button",0).Click();
+			Tab1.WaitDownloading();
+			Thread.Sleep(rndGenerator.Next(10, 20)*1000);
+			if (instance.ActiveTab.FindElementByXPath("//div[contains(@class,'captcha')]", 0).IsVoid) {
+				//капча разгадана верно
+				project.SendInfoToLog("Каптча успешно разгадана", true);
+				break;
+			}else{
+				//репортим сервису о неправильно разгаданной каптче
+				strGetResultHeaderBody = ZennoPoster.HttpGet(arrCaptchaResult1[1], "", "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly);
+			}
+		}
+	}
+}
+if (!blnRegAkk) {
+	lock (SyncObjects.InputSyncer) {
+		if (strMailPath==string.Empty) {
+			strMailResult = ZennoPoster.MailConfirm("15;30;60", strLogin, project.Profile.Password, "imap.mail.ru", 
+				993, true, false, true, false, @"registration@facebookmail.com", @"(?<=confirmemail\.php).*", 0, false, new string[]{"INBOX"});
+		} else {
+			if (strProxyIPV6!=string.Empty) {
+				if (lstProxyIPV6.Count==0) {
+				strMailResult = ZennoPoster.MailConfirm("15;30;60", strLogin, strPass, "imap.mail.ru", 
+					993, true, false, true, false, @"registration@facebookmail.com", @"(?<=confirmemail\.php).*", 0, false, new string[]{"INBOX"});
+				} else {
+					strProxyIPV6 = lstProxyIPV6[0];
+					lstProxyIPV6.RemoveAt(0);
+					lstProxyIPV6.Add(strProxyIPV6);
+					strMailResult = ZennoPoster.MailConfirm("15;30;60", strLogin, strPass, "imap.mail.ru", 
+						993, true, false, true, false, @"registration@facebookmail.com", @"(?<=confirmemail\.php).*", 0, false, new string[]{"INBOX"}, proxyString: strProxyIPV6);
+				}
+			} else {
+				strMailResult = ZennoPoster.MailConfirm("15;30;60", strLogin, strPass, "imap.mail.ru", 
+					993, true, false, true, false, @"registration@facebookmail.com", @"(?<=confirmemail\.php).*", 0, false, new string[]{"INBOX"});
+			}
+		}
+		if (strMailResult==string.Empty) {
+			try {
+				PauseBefore = rndGenerator.Next(0, 7500);
+				PauseBetweenChecks = rndGenerator.Next(0, 7500);
+				Timeout = rndGenerator.Next(15000, 30000);
+				FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+				FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+				SendTextMinDelay = rndGenerator.Next(0, 7500);
+				SendTextMaxDelay = rndGenerator.Next(0, 7500);
+				wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name, 'password')]", 0, project.Profile.Password);
+			} catch {
+				Tab1.FindElementByXPath("//input[contains(@name, 'password')]",0).SetValue(project.Profile.Password, "Full");
+			}
+			try {
+				PauseBefore = rndGenerator.Next(0, 7500);
+				PauseBetweenChecks = rndGenerator.Next(0, 7500);
+				Timeout = rndGenerator.Next(15000, 30000);
+				FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+				FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+				SendTextMinDelay = rndGenerator.Next(0, 7500);
+				SendTextMaxDelay = rndGenerator.Next(0, 7500);
+				wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class, 'selected')]", 0);
+			} catch {
+				Tab1.FindElementByXPath("//button[contains(@class, 'selected')]",0).Click();
+			}
+			Thread.Sleep(5000);
+			Tab1.WaitDownloading();
+			Tab1.FindElementByXPath("//input[@name='ok]",0).Click();
+			Thread.Sleep(3000);
+			Tab1.WaitDownloading();
+		} else {
+			Tab1.Navigate("https://www.facebook.com/n/?confirmemail.php"+strMailResult, Tab1.URL);
+			Tab1.WaitDownloading();
+		}
+	}
+	project.ExecuteProject(GenSites, mapVars, true, true);
+}
+if (!Tab1.FindElementByXPath("//div[@id='checkpointBottomBar']",0).IsVoid) {
+	project.SendInfoToLog("Получаем номер телефона",true);
+	wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	try {
+		wHelper.ClickElementXPath(Tab1, true, null, "//div[@class='captcha']/descendant::a[contains(@class,'selected')]", 0);
+	} catch {
+		Tab1.FindElementByXPath("//div[@class='captcha']/descendant::a[contains(@class,'selected')]",0).Click();
+	}
+	Thread.Sleep(5000);
+	//Выполняем SMS-активацию
+	switch(strSmsService) {
+		case "SmsActivate.dll":
+			strServiseSite = "fb";
+			strOperator = "any";
+			break;
+		case "SmsReg.dll":
+			strServiseSite = "facebook";
+			strOperator = "all";
+			break;
+		case "SmsVk.dll":
+			strServiseSite = "fb";
+			strOperator = "";
+			break;
+		case "SimSmsOrg.dll":
+			strServiseSite = "opt2";
+			strOperator = "";
+			break;
+		case "GetSmsOnline.dll":
+			strServiseSite = "fb";
+			strOperator = "or";
+			break;
+		case "GiveSms.dll":
+			strServiseSite = "fb";
+			strOperator = "any";
+			break;
+	}
+	lock (SyncObjects.InputSyncer) {
+		try {
+			strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strLogin, strServiseSite,strOperator);
+		} catch {
+			project.SendInfoToLog("Сервис смс активации дайл сбой, пробую еще рез обратиться",true);
+			strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strLogin, strServiseSite,strOperator);
+		}	
+	}
+	if (strRegistrationID==string.Empty) {
+		project.SendInfoToLog("Не получили номер телефона, попробуйте сменить сервис и запустить снова",true);
+		return "Oki";
+	}
+	project.SendInfoToLog("Получен телефонный номер: " + strLogin, true);
+	//сообщаем сервису, что в ближайшие 2 минуты на номер придёт смс от указанного нами сервиса
+	instance.ActiveTab.FindElementByXPath("//input[@name='contact_point']", 0).SetValue(strLogin, "Full"); //заполняем номер телефона в поле
+	Thread.Sleep(3000);
+	wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	try {
+		wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class, 'layerConfirm uiOverlayButton selected')]", 0);
+	} catch {
+		Tab1.FindElementByXPath("//button[contains(@class, 'layerConfirm uiOverlayButton selected')]",0).Click();
+	}
+	instance.ActiveTab.WaitDownloading();
+	lock (SyncObjects.InputSyncer) {
+		strSetStatusResult = ZennoPoster.Sms.SetStatus(strSmsService, strRegistrationID, InterfacesLibrary.SmsService.Enums.SmsServiceStatus.Ready);
+	}
+	Thread.Sleep(30000);
+	while (true) {
+		if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		strConfirmationCode = ZennoPoster.Sms.GetStatus(strSmsService, strRegistrationID);
+		if (strConfirmationCode.Contains("wait")||strConfirmationCode.Contains("Wait")) {
+			Tab1.FindElementByXPath("//div[contains(@class, 'pam uiOverlayFooter')]/descendant::td[1]/descendant::a",0).Click();
+			continue;
+		} else {
+			break;
+		}
+	}
+	resultCode = Regex.Match(strConfirmationCode, @"\d+").Value;
+	for (int y=0; y<10; y++) {
+		if (!Tab1.FindElementByXPath("//input[contains(@name,'pin')]",0).IsVoid
+			|| !Tab1.FindElementByXPath("//input[contains(@id,'pin')]",0).IsVoid
+			|| !Tab1.FindElementByXPath("//input[contains(@id,'sms')]",0).IsVoid
+			|| !Tab1.FindElementByXPath("//input[contains(@name,'sms')]",0).IsVoid) {
+			try {
+				wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@id,'pin')]", 0, resultCode, EmulateKM: true);
+			} catch {
+				wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name,'pin')]", 0, resultCode, EmulateKM: true);
+			}
+			try {
+				wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class,'layerConfirm uiOverlayButton selected')]", 0, EmulateKM: true);
+			} catch {
+				Tab1.FindElementByXPath("//button[contains(@class,'layerConfirm uiOverlayButton selected')]",0).Click();
+			}
+			for (int H=0; H<10; H++) {
+				if (!Tab1.FindElementByXPath("//div[contains(@class, 'clearfix')]/descendant::input[@name='activate_sms']",0).IsVoid) {
+					Tab1.FindElementByXPath("//button[contains(@class,'layerConfirm uiOverlayButton selected')]",0).Click();
+				} else {
+					Thread.Sleep(5000);
+					continue;
+				}
+			}
+			lock (SyncObjects.InputSyncer) {
+				instance.SendText("{ENTER}", 15);
+			}
+			instance.ActiveTab.WaitDownloading();
+			Thread.Sleep(5000);
+			break;
+		} else {
+			Thread.Sleep(3000);
+			continue;
+		}
+		if (!instance.ActiveTab.FindElementByXPath("//span[@id='error']",0).IsVoid) {
+			project.SendInfoToLog("Google спалил что это бот пытается активировать через телефон, выходим...",true);
+			return "oki";
+		}
+	}
+}
+string status = string.Empty;
+string time = string.Empty;
+
+if (Tab1.URL.Contains("block") ||
+	Tab1.URL.Contains("checkpoint")) {
+	status = "block";
+	project.Variables["status"].Value = status;
+	time = DateTime.Now.ToString("dd.MM.yyyy hh.mm.ss");
+	project.Variables["time"].Value = time;
+	Tab1.FindElementByXPath("//button[@id='checkpointSubmitButton']",0).Click();
+	Tab1.WaitDownloading();
+	Thread.Sleep(5000);
+	if (Tab1.FindElementByXPath("//input[@name='upload_meta']",0).IsVoid) {
+		project.SendInfoToLog("Получаем номер телефона",true);
+		wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		try {
+			wHelper.ClickElementXPath(Tab1, true, null, "//div[@class='captcha']/descendant::a[contains(@class,'selected')]", 0);
+		} catch {
+			Tab1.FindElementByXPath("//div[@class='captcha']/descendant::a[contains(@class,'selected')]",0).Click();
+		}
+		Thread.Sleep(5000);
+		//Выполняем SMS-активацию
+		switch(strSmsService) {
+			case "SmsActivate.dll":
+				strServiseSite = "fb";
+				strOperator = "any";
+				break;
+			case "SmsReg.dll":
+				strServiseSite = "facebook";
+				strOperator = "all";
+				break;
+			case "SmsVk.dll":
+				strServiseSite = "fb";
+				strOperator = "";
+				break;
+			case "SimSmsOrg.dll":
+				strServiseSite = "opt2";
+				strOperator = "";
+				break;
+			case "GetSmsOnline.dll":
+				strServiseSite = "fb";
+				strOperator = "or";
+				break;
+			case "GiveSms.dll":
+				strServiseSite = "fb";
+				strOperator = "any";
+				break;
+		}
+		lock (SyncObjects.InputSyncer) {
+			try {
+				strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+			} catch {
+				project.SendInfoToLog("Сервис смс активации дайл сбой, пробую еще рез обратиться",true);
+				strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+			}	
+		}
+		if (strRegistrationID==string.Empty) {
+			project.SendInfoToLog("Не получили номер телефона, попробуйте сменить сервис и запустить снова",true);
+			return "Oki";
+		}
+		project.SendInfoToLog("Получен телефонный номер: " + strPhoneNumber, true);
+		//сообщаем сервису, что в ближайшие 2 минуты на номер придёт смс от указанного нами сервиса
+		instance.ActiveTab.FindElementByXPath("//input[@name='contact_point']", 0).SetValue(strPhoneNumber, "Full"); //заполняем номер телефона в поле
+		Thread.Sleep(3000);
+		wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		try {
+			wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class, 'layerConfirm uiOverlayButton selected')]", 0);
+		} catch {
+			Tab1.FindElementByXPath("//button[contains(@class, 'layerConfirm uiOverlayButton selected')]",0).Click();
+		}
+		instance.ActiveTab.WaitDownloading();
+		strSetStatusResult = ZennoPoster.Sms.SetStatus(strSmsService, strRegistrationID, InterfacesLibrary.SmsService.Enums.SmsServiceStatus.Ready);
+		Thread.Sleep(30000);
+		while (true) {
+			if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+			strConfirmationCode = ZennoPoster.Sms.GetStatus(strSmsService, strRegistrationID);
+			if (strConfirmationCode.Contains("wait")||strConfirmationCode.Contains("Wait")) {
+				Tab1.FindElementByXPath("//div[contains(@class, 'pam uiOverlayFooter')]/descendant::td[1]/descendant::a",0).Click();
+				continue;
+			} else {
+				break;
+			}
+		}
+		resultCode = Regex.Match(strConfirmationCode, @"\d+").Value;
+		for (int y=0; y<10; y++) {
+			if (!Tab1.FindElementByXPath("//input[contains(@name,'pin')]",0).IsVoid
+				|| !Tab1.FindElementByXPath("//input[contains(@id,'pin')]",0).IsVoid
+				|| !Tab1.FindElementByXPath("//input[contains(@id,'sms')]",0).IsVoid
+				|| !Tab1.FindElementByXPath("//input[contains(@name,'sms')]",0).IsVoid) {
+				try {
+					wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@id,'pin')]", 0, resultCode, EmulateKM: true);
+				} catch {
+					wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name,'pin')]", 0, resultCode, EmulateKM: true);
+				}
+				try {
+					wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class,'layerConfirm uiOverlayButton selected')]", 0, EmulateKM: true);
+				} catch {
+					Tab1.FindElementByXPath("//button[contains(@class,'layerConfirm uiOverlayButton selected')]",0).Click();
+				}
+				for (int H=0; H<10; H++) {
+					if (!Tab1.FindElementByXPath("//div[contains(@class, 'clearfix')]/descendant::input[@name='activate_sms']",0).IsVoid) {
+						Tab1.FindElementByXPath("//button[contains(@class,'layerConfirm uiOverlayButton selected')]",0).Click();
+					} else {
+						Thread.Sleep(5000);
+						continue;
+					}
+				}
+				instance.SendText("{ENTER}", 15);
+				instance.ActiveTab.WaitDownloading();
+				Thread.Sleep(5000);
+				break;
+			} else {
+				Thread.Sleep(3000);
+				continue;
+			}
+			if (!instance.ActiveTab.FindElementByXPath("//span[@id='error']",0).IsVoid) {
+				project.SendInfoToLog("Google спалил что это бот пытается активировать через телефон, выходим...",true);
+				return "oki";
+			}
+		}
+	} else {
+		List<string> lstImg = new List<string>(); //Создадим временный список
+		strResultFileName = project.Directory + @"\Facebook Ultimate Bot v.3.0\reg_img\"+project.Profile.Name+" "+project.Profile.Surname;
+		lstImg.AddRange(Directory.GetFiles(strResultFileName));
+		int RND = rndGenerator.Next(0, lstImg.Count);
+		if (lstImg.Count==0) {
+			project.SendInfoToLog("Закончились картинки, добавьте картинки и запустите бота снова",true);
+			return "oki";
+		}
+		strBannerPhotoAkk = lstImg[RND];
+		lstImg.RemoveAt(RND);
+		instance.SetFileUploadPolicy("ok", "");
+		instance.SetFilesForUpload(strBannerPhotoAkk);
+		try {
+			PauseBefore = rndGenerator.Next(0, 7500);
+			PauseBetweenChecks = rndGenerator.Next(0, 7500);
+			Timeout = rndGenerator.Next(15000, 30000);
+			FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+			FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+			SendTextMinDelay = rndGenerator.Next(0, 7500);
+			SendTextMaxDelay = rndGenerator.Next(0, 7500);
+			wHelper.ClickElementXPath(Tab1, true, null, "//input[@name='upload_meta']", 0);
+		} catch {
+			Tab1.FindElementByXPath("//input[@name='upload_meta']",0).Click();
+		}
+		Tab1.WaitDownloading();
+		Thread.Sleep(20000);
+		Tab1.FindElementByXPath("//button[contains(@id, 'checkpointSubmitButton')]", 0).Click();
+		Tab1.WaitDownloading();
+		Thread.Sleep(10000);
+		project.SendInfoToLog("Отправил аккаунт в отлежку",true);
+	}
+}
+
+if (!Tab1.FindElementByXPath("//input[contains(@name,'code')]",0).IsVoid) {
+	if (Tab1.FindElementByXPath("//div[@id='wizard_step_contact_importer']",0).IsVoid) {
+		try {
+			for (int h=0; h<1; h++) {
+				if (blnMyTel) {
+					string Code = string.Empty;
+					while (true) {
+						if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+						Code = Tab1.FindElementByXPath("//div/input[contains(@id,'code_in_cliff')]",0).GetValue();
+						if (Code==string.Empty) {
+							Thread.Sleep(5000);
+							continue;
+						} else {
+							project.SendInfoToLog("Введен код: "+Code,true);
+							project.SendInfoToLog("Продолжаю регистрацию",true);
+							Thread.Sleep(5000);
+							break;
+						}
+					}
+				} else {
+					for (i=0; i<30; i++) {
+						lock (SyncObjects.InputSyncer) {
+							strConfirmationCode = ZennoPoster.Sms.GetStatus(strSmsService, strRegistrationID);
+						}
+						if (strConfirmationCode.Contains("wait") || strConfirmationCode.Contains("Wait")) {
+							project.SendErrorToLog("Ждем код активации", true);
+							Thread.Sleep(5000);
+							continue;
+						}
+						if (strConfirmationCode.Contains("Error") || strSetStatusResult.Contains("Nums") || strSetStatusResult.Contains("num")) {
+							project.SendErrorToLog("Нет номеров для смс активации, можете регистрировать аккаунт через почту при необходимости", true);
+							break;		
+						}
+						if (strSetStatusResult.Contains("NUMS") || strSetStatusResult.Contains("Nums") || strSetStatusResult.Contains("num")) {
+							project.SendErrorToLog("Нет номеров для смс активации, можете регистрировать аккаунт через почту при необходимости", true);
+							return "error";		
+						}
+						if (strConfirmationCode!=string.Empty) break;
+						if (i==29) {
+							project.SendErrorToLog("STOP: Произошла ошибка. Сервис смс-активации не готов", true);
+							return "error";
+						}
+					}
+					//заполняем поле кодом подтверждения
+					project.SendInfoToLog("Получен код подтверждения: " + strConfirmationCode, true);
+					try{
+						PauseBefore = rndGenerator.Next(0, 7500);
+						PauseBetweenChecks = rndGenerator.Next(0, 7500);
+						Timeout = rndGenerator.Next(15000, 30000);
+						FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+						FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+						SendTextMinDelay = rndGenerator.Next(0, 7500);
+						SendTextMaxDelay = rndGenerator.Next(0, 7500);
+						wHelper.SetElementValueXPath(Tab1, true, null, "//div/input[contains(@id,'code_in_cliff')]", 0, strConfirmationCode);
+					} catch {
+						Tab1.FindElementByXPath("//div/input[contains(@id,'code_in_cliff')]",0).SetValue(strConfirmationCode,"Middle");
+					}
+					instance.WaitFieldEmulationDelay();
+					lock (SyncObjects.InputSyncer) {
+						instance.SendText("{ENTER}", 15);
+					}
+				}
+				Thread.Sleep(5000);
+				Tab1.WaitDownloading();
+				try{
+					PauseBefore = rndGenerator.Next(0, 7500);
+					PauseBetweenChecks = rndGenerator.Next(0, 7500);
+					Timeout = rndGenerator.Next(15000, 30000);
+					FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+					FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+					SendTextMinDelay = rndGenerator.Next(0, 7500);
+					SendTextMaxDelay = rndGenerator.Next(0, 7500);
+					wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name, 'confirm')]", 0);
+				} catch {
+					instance.ActiveTab.FindElementByXPath("//button[contains(@name, 'confirm')]", 0).Click();
+				}
+				Thread.Sleep(rndGenerator.Next(10, 15)*1000);
+				try {
+					PauseBefore = rndGenerator.Next(0, 7500);
+					PauseBetweenChecks = rndGenerator.Next(0, 7500);
+					Timeout = rndGenerator.Next(15000, 30000);
+					FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+					FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+					SendTextMinDelay = rndGenerator.Next(0, 7500);
+					SendTextMaxDelay = rndGenerator.Next(0, 7500);
+					wHelper.ClickElementXPath(Tab1, true, null, "//a[contains(@class, 'layerCancel')]", 0);
+				} catch {
+					Tab1.FindElementByXPath("//a[contains(@class, 'layerCancel')]",0).Click();
+				}
+			}
+		} catch {
+			project.SendInfoToLog("Продолжаю работать");
+		}
+	}
+}
+Thread.Sleep(rndGenerator.Next(15, 20)*1000);
+
+if (Tab1.URL.Contains("block") ||
+	Tab1.URL.Contains("checkpoint")) {
+	status = "block";
+	project.Variables["status"].Value = status;
+	time = DateTime.Now.ToString("dd.MM.yyyy hh.mm.ss");
+	project.Variables["time"].Value = time;
+	Tab1.FindElementByXPath("//button[@id='checkpointSubmitButton']",0).Click();
+	Tab1.WaitDownloading();
+	Thread.Sleep(5000);
+	if (Tab1.FindElementByXPath("//input[@name='upload_meta']",0).IsVoid) {
+		project.SendInfoToLog("Получаем номер телефона",true);
+		wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		try {
+			wHelper.ClickElementXPath(Tab1, true, null, "//div[@class='captcha']/descendant::a[contains(@class,'selected')]", 0);
+		} catch {
+			Tab1.FindElementByXPath("//div[@class='captcha']/descendant::a[contains(@class,'selected')]",0).Click();
+		}
+		Thread.Sleep(5000);
+		//Выполняем SMS-активацию
+		switch(strSmsService) {
+			case "SmsActivate.dll":
+				strServiseSite = "fb";
+				strOperator = "any";
+				break;
+			case "SmsReg.dll":
+				strServiseSite = "facebook";
+				strOperator = "all";
+				break;
+			case "SmsVk.dll":
+				strServiseSite = "fb";
+				strOperator = "";
+				break;
+			case "SimSmsOrg.dll":
+				strServiseSite = "opt2";
+				strOperator = "";
+				break;
+			case "GetSmsOnline.dll":
+				strServiseSite = "fb";
+				strOperator = "or";
+				break;
+			case "GiveSms.dll":
+				strServiseSite = "fb";
+				strOperator = "any";
+				break;
+		}
+		lock (SyncObjects.InputSyncer) {
+			try {
+				strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+			} catch {
+				project.SendInfoToLog("Сервис смс активации дайл сбой, пробую еще рез обратиться",true);
+				strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+			}	
+		}
+		if (strRegistrationID==string.Empty) {
+			project.SendInfoToLog("Не получили номер телефона, попробуйте сменить сервис и запустить снова",true);
+			return "Oki";
+		}
+		project.SendInfoToLog("Получен телефонный номер: " + strPhoneNumber, true);
+		//сообщаем сервису, что в ближайшие 2 минуты на номер придёт смс от указанного нами сервиса
+		instance.ActiveTab.FindElementByXPath("//input[@name='contact_point']", 0).SetValue(strPhoneNumber, "Full"); //заполняем номер телефона в поле
+		Thread.Sleep(3000);
+		wHelper.PauseBefore = rndGenerator.Next(1000, 5000);
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		try {
+			wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class, 'layerConfirm uiOverlayButton selected')]", 0);
+		} catch {
+			Tab1.FindElementByXPath("//button[contains(@class, 'layerConfirm uiOverlayButton selected')]",0).Click();
+		}
+		instance.ActiveTab.WaitDownloading();
+		strSetStatusResult = ZennoPoster.Sms.SetStatus(strSmsService, strRegistrationID, InterfacesLibrary.SmsService.Enums.SmsServiceStatus.Ready);
+		Thread.Sleep(30000);
+		while (true) {
+			if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+			strConfirmationCode = ZennoPoster.Sms.GetStatus(strSmsService, strRegistrationID);
+			if (strConfirmationCode.Contains("wait")||strConfirmationCode.Contains("Wait")) {
+				Tab1.FindElementByXPath("//div[contains(@class, 'pam uiOverlayFooter')]/descendant::td[1]/descendant::a",0).Click();
+				continue;
+			} else {
+				break;
+			}
+		}
+		resultCode = Regex.Match(strConfirmationCode, @"\d+").Value;
+		for (int y=0; y<10; y++) {
+			if (!Tab1.FindElementByXPath("//input[contains(@name,'pin')]",0).IsVoid
+				|| !Tab1.FindElementByXPath("//input[contains(@id,'pin')]",0).IsVoid
+				|| !Tab1.FindElementByXPath("//input[contains(@id,'sms')]",0).IsVoid
+				|| !Tab1.FindElementByXPath("//input[contains(@name,'sms')]",0).IsVoid) {
+				try {
+					wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@id,'pin')]", 0, resultCode, EmulateKM: true);
+				} catch {
+					wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name,'pin')]", 0, resultCode, EmulateKM: true);
+				}
+				try {
+					wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class,'layerConfirm uiOverlayButton selected')]", 0, EmulateKM: true);
+				} catch {
+					Tab1.FindElementByXPath("//button[contains(@class,'layerConfirm uiOverlayButton selected')]",0).Click();
+				}
+				for (int H=0; H<10; H++) {
+					if (!Tab1.FindElementByXPath("//div[contains(@class, 'clearfix')]/descendant::input[@name='activate_sms']",0).IsVoid) {
+						Tab1.FindElementByXPath("//button[contains(@class,'layerConfirm uiOverlayButton selected')]",0).Click();
+					} else {
+						Thread.Sleep(5000);
+						continue;
+					}
+				}
+				instance.SendText("{ENTER}", 15);
+				instance.ActiveTab.WaitDownloading();
+				Thread.Sleep(5000);
+				break;
+			} else {
+				Thread.Sleep(3000);
+				continue;
+			}
+			if (!instance.ActiveTab.FindElementByXPath("//span[@id='error']",0).IsVoid) {
+				project.SendInfoToLog("Google спалил что это бот пытается активировать через телефон, выходим...",true);
+				return "oki";
+			}
+		}
+	} else {
+		List<string> lstImg = new List<string>(); //Создадим временный список
+		strResultFileName = project.Directory + @"\Facebook Ultimate Bot v.3.0\reg_img\"+project.Profile.Name+" "+project.Profile.Surname;
+		lstImg.AddRange(Directory.GetFiles(strResultFileName));
+		int RND = rndGenerator.Next(0, lstImg.Count);
+		if (lstImg.Count==0) {
+			project.SendInfoToLog("Закончились картинки, добавьте картинки и запустите бота снова",true);
+			return "oki";
+		}
+		strBannerPhotoAkk = lstImg[RND];
+		lstImg.RemoveAt(RND);
+		instance.SetFileUploadPolicy("ok", "");
+		instance.SetFilesForUpload(strBannerPhotoAkk);
+		try {
+			PauseBefore = rndGenerator.Next(0, 7500);
+			PauseBetweenChecks = rndGenerator.Next(0, 7500);
+			Timeout = rndGenerator.Next(15000, 30000);
+			FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+			FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+			SendTextMinDelay = rndGenerator.Next(0, 7500);
+			SendTextMaxDelay = rndGenerator.Next(0, 7500);
+			wHelper.ClickElementXPath(Tab1, true, null, "//input[@name='upload_meta']", 0);
+		} catch {
+			Tab1.FindElementByXPath("//input[@name='upload_meta']",0).Click();
+		}
+		Tab1.WaitDownloading();
+		Thread.Sleep(20000);
+		Tab1.FindElementByXPath("//button[contains(@id, 'checkpointSubmitButton')]", 0).Click();
+		Tab1.WaitDownloading();
+		Thread.Sleep(10000);
+		project.SendInfoToLog("Отправил аккаунт в отлежку",true);
+	}
+}
+//int n=-1;
+//int RGD = new Random().Next(3,6);
+//if (!Tab1.FindElementByXPath("//div[@class='actions']/button[@name='action']",0).IsVoid) {
+//	HtmlElementCollection AllLinksPages1 = Tab1.FindElementsByXPath("//div[@class='actions']/button[@name='action']");
+//	foreach(HtmlElement elLinkPages1 in AllLinksPages1.Elements) {
+//		n++;
+//		elLinkPages1.Click();
+//		Thread.Sleep(rndGenerator.Next(2, 7)*1000);
+//		if (n>=RGD) break;
+//	}
+//	try {
+//		PauseBefore = rndGenerator.Next(0, 7500);
+//		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+//		Timeout = rndGenerator.Next(15000, 30000);
+//		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+//		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+//		SendTextMinDelay = rndGenerator.Next(0, 7500);
+//		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+//		wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@id, 'wizard_step_container')]/div[3]/a", 0);
+//	} catch {
+//		Tab1.FindElementByXPath("//div[contains(@id, 'wizard_step_container')]/div[3]/a",0).Click();
+//	}
+//}
+project.SendInfoToLog("Аккаунт успешно зарегистрирован, куки сохранены, данные для авторизации сохранены в таблицу multiakk.xlsx",true);
+var Date = DateTime.Now.ToString("yyyy");
+var YearBorn = Convert.ToInt32(Date);
+YearBorn = YearBorn-BornYear;
+string ResultYear = YearBorn.ToString();
+lock (SyncObjects.InputSyncer) {
+	project.Variables["fio"].Value = project.Profile.Name+" "+project.Profile.Surname;
+	project.Variables["login"].Value = strLogin;
+	project.Variables["pass"].Value = project.Profile.Password;
+	project.Variables["proxy"].Value = strProxy;
+	project.Variables["useragent"].Value = project.Profile.UserAgent;
+	project.Variables["BirthDay"].Value = project.Profile.BornDay+"-"+project.Profile.BornMonth+"-"+ResultYear;
+	project.Variables["RegData"].Value = strDate;
+	project.Variables["DOPMailLogin"].Value = strSelectedAccount;
+	project.Variables["DOPMailPass"].Value = project.Profile.Password;
+}
+if (!Tab1.FindElementByXPath("//a[contains(@class, 'layerCancel')]",0).IsVoid) {
+	try {
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		wHelper.ClickElementXPath(Tab1, true, null, "//a[contains(@class, 'layerCancel')]", 0);
+	} catch {
+		Tab1.FindElementByXPath("//a[contains(@class, 'layerCancel')]",0).Click();
+	}
+}
+
+bool blnZapolnen = Convert.ToBoolean(project.Variables["zapolnen"].Value);
+//Скачиваю фото для аккаунтов
+project.SendInfoToLog(string.Format("Скачиваю фото для аккаунта {0}", project.Profile.Name+" "+project.Profile.Surname),true);
+string strQuery = string.Empty;
+string strFileDownloadResult = string.Empty;
+string strBestImageLink = string.Empty;
+
+List<string> lstLinkProfAll = new List<string>();
+List<string> lstLinkPhoto = new List<string>();
+string regex = string.Empty;
+string Country = string.Empty;
+string City = string.Empty;
+string Married = string.Empty;
+string Children = string.Empty;
+string Height = string.Empty;
+string Weight = string.Empty;
+string EyeColor = string.Empty;
+string HairColor = string.Empty;
+string BodyType = string.Empty;
+string Religion = string.Empty;
+string Education = string.Empty;
+string Smoke = string.Empty;
+string Drink = string.Empty;
+string Occupation = string.Empty;
+string strbridesbay = string.Empty;
+string Hobbies = string.Empty;
+int RnD = 0;
+for (int N=0; N<3; N++) {
+	RnD = new Random().Next(0,380);
+	strbridesbay = ZennoPoster.HttpGet("https://bridesbay.com/women-list/page"+RnD+"", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.HeaderAndBody, 15000);
+	regex = @"(?<=<a\ href=""/).*(?=/""><span>)";
+
+	foreach (Match rxMatch in Regex.Matches(strbridesbay, regex)) {
+		if (rxMatch.Value!=string.Empty) lstLinkProfAll.Add("https://bridesbay.com/"+rxMatch.Value);
+	}
+	if (lstLinkProfAll.Count==0) {
+		project.SendInfoToLog("Не спарсились ссылки на девушек",true);
+		continue;
+	} else {
+		break;
+	}
+}
+
+int Fuck = new Random().Next(0,lstLinkProfAll.Count);
+strQuery = lstLinkProfAll[Fuck];
+string strWoman = ZennoPoster.HttpGet(strQuery, strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.HeaderAndBody, 15000);
+
+regex = @"(?<=<a\ href=""/).*(?=""\ rel=)";
+
+foreach (Match rxMatch in Regex.Matches(strWoman, regex)) {
+	if (rxMatch.Value!=string.Empty) lstLinkPhoto.Add("https://bridesbay.com/"+rxMatch.Value);
+}
+
+for (int c=0; c<lstLinkPhoto.Count; c++) {
+	if (lstLinkPhoto.Count==0) break;
+	strBestImageLink = lstLinkPhoto[0];
+	lstLinkPhoto.RemoveAt(0);
+	strFileDownloadResult = ZennoPoster.HttpGet(strBestImageLink, strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.File, 15000,
+		"", DownloadPath: project.Directory + @"\Facebook Ultimate Bot v.3.0\reg_img\"+project.Profile.Name+" "+project.Profile.Surname);
+	project.SendInfoToLog("Скачалось фото для заполнения аккаунта: "+strBestImageLink,true);
+}
+strbridesbay = ZennoPoster.HttpGet(strQuery, strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.HeaderAndBody, 15000);
+Country = new Regex(@"(?<=Country:</span>).*(?=<)").Match(strbridesbay).Value;
+City = new Regex(@"(?<=City:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+Married = new Regex(@"(?<=Marital\ status:</span>).*(?=<)").Match(strbridesbay).Value;
+Children = new Regex(@"(?<=Children:</span>).*(?=<)").Match(strbridesbay).Value;
+Height = new Regex(@"(?<=Height:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+Weight = new Regex(@"(?<=Height:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+EyeColor = new Regex(@"(?<=Eye\ color:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+HairColor = new Regex(@"(?<=Hair\ color:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+BodyType = new Regex(@"(?<=Body\ type:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+Religion = new Regex(@"(?<=Religion:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+Education = new Regex(@"(?<=Education:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+Smoke = new Regex(@"(?<=Smoke:</span>).*(?=<)").Match(strbridesbay).Value;
+Drink = new Regex(@"(?<=Drink:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+Occupation = new Regex(@"(?<=Occupation:</span>\ ).*(?=<)").Match(strbridesbay).Value;
+Hobbies = "Красивая привлекательная, любвиобильная и обаятельная девушка";
+if (Hobbies.Contains("<") || Occupation.Contains(">") || Occupation.Contains("/")) {
+	Hobbies = Regex.Replace(Hobbies, @"\<.*?\>", " ");
+}
+List<string> lstTemp = new List<string>();
+
+if (blnZapolnen) {
+	// Загружаю баннер
+	List<string> lstImg = new List<string>();
+	strResultFileName = project.Directory + @"\Facebook Ultimate Bot v.3.0\reg_img\"+project.Profile.Name+" "+project.Profile.Surname;
+	lstImg.AddRange(Directory.GetFiles(strResultFileName));
+	int RND = rndGenerator.Next(0, lstImg.Count);
+	if (lstImg.Count==0) {
+		project.SendInfoToLog("Закончились картинки, добавьте картинки и запустите бота снова",true);
+		return "oki";
+	}
+	strBannerPhotoAkk = lstImg[RND];
+	lstImg.RemoveAt(RND);
+	instance.SetFileUploadPolicy("ok", "");
+	instance.SetFilesForUpload(strBannerPhotoAkk);
+	try {
+		PauseBefore = rndGenerator.Next(0, 7500);
+		PauseBetweenChecks = rndGenerator.Next(0, 7500);
+		Timeout = rndGenerator.Next(15000, 30000);
+		FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+		FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+		SendTextMinDelay = rndGenerator.Next(0, 7500);
+		SendTextMaxDelay = rndGenerator.Next(0, 7500);
+		wHelper.ClickElementXPath(Tab1, true, null, "//img[contains(@id, 'pic')]", 0);
+	} catch {
+		Tab1.FindElementByXPath("//img[contains(@id, 'pic')]",0).Click();
+	}
+	Tab1.WaitDownloading();
+	Tab1.FindElementByXPath("//div[contains(@class,'uiContextualLayerBelowLeft')]/descendant::button[contains(@class,'selected')]", 0).Click();
+	Thread.Sleep(5000);
+	Tab1.WaitDownloading();	
+	Tab1.FindElementByXPath("//a[contains(@class, 'fbTimelineEditCoverButton')]/i", 0).Click();
+	Tab1.WaitDownloading();
+	Tab1.FindElementByXPath("//li[contains(@class, 'MenuItem')]/descendant::input[@name='pic']", 0).Click();
+	Tab1.WaitDownloading();
+	Thread.Sleep(rndGenerator.Next(25, 50)*1000);
+	Tab1.FindElementByXPath("//button[contains(@class, 'saveButton')]", 0).Click();
+	Thread.Sleep(rndGenerator.Next(15, 35)*1000);
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	// Заполняю аватарку
+	instance.SetFileUploadPolicy("ok", "");
+	instance.SetFilesForUpload(strBannerPhotoAkk);
+	Tab1.FindElementByXPath("//div[contains(@class, 'fbTimelineProfilePicSelector')]/descendant::a", 0).Click();
+	for (i=0; i<15; i++) {
+		if (!Tab1.FindElementByXPath("//div[contains(@class, 'autofocus')]/descendant::input",0).IsVoid) {
+			break;
+		} else {
+			Thread.Sleep(rndGenerator.Next(5, 10)*1000);
+			continue;
+		}
+	}
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	Tab1.FindElementByXPath("//div[contains(@class, 'autofocus')]/descendant::input", 0).Click();
+	Tab1.FindElementByXPath("//input[contains(@class, '_n')]", 0).Click();
+	for (i=0; i<15; i++) {
+		if (!Tab1.FindElementByXPath("//div/descendant::button[contains(@class, 'selected') and text()='Сохранить' or text()='Save']",0).IsVoid) {
+			Thread.Sleep(rndGenerator.Next(3, 5)*1000);
+			break;
+		} else {
+			Thread.Sleep(rndGenerator.Next(3, 5)*1000);
+			continue;
+		}
+	}
+	Thread.Sleep(rndGenerator.Next(5, 7)*1000);
+	Tab1.FindElementByXPath("//button[text()='Сохранить']", 0).Click();
+	Tab1.FindElementByXPath("//button[text()='Save']", 0).Click();
+	Thread.Sleep(5000);
+	Tab1.WaitDownloading();
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	project.SendInfoToLog("Кнопку сохранить нажал",true);
+	if (!Tab1.FindElementByXPath("//button[contains(@class, 'uiOverlayButton')]",0).IsVoid) {
+		Tab1.FindElementByXPath("//button[contains(@class, 'uiOverlayButton')]", 0).Click();
+		Thread.Sleep(rndGenerator.Next(6, 8)*1000);
+	}
+	Tab1.FindElementByXPath("//div[contains(@class,'uiOverlayFooter')]/descendant::button[contains(@class,'selected')]", 0).Click();
+	Thread.Sleep(5000);
+	Tab1.WaitDownloading();
+	Tab1.FindElementByXPath("//div[contains(@class,'uiOverlayFooter')]/descendant::button[contains(@class,'selected')]", 0).Click();
+	Thread.Sleep(5000);
+	Tab1.WaitDownloading();
+	project.SendInfoToLog("Аватарка загружена",true);
+	Tab1.WaitDownloading();
+	project.SendInfoToLog("На аккаунта загружена аватарка и баннер (шапка)",true);
+
+	Tab1.FindElementByXPath("//img[contains(@id,'profile_pic_header')]", 0).Click();
+	Tab1.WaitDownloading();
+	lstTemp.AddRange(Directory.GetFiles(strResultFileName)); 
+	if (lstTemp.Count==0) {
+		project.SendErrorToLog("Добавьте картинки в папку c картинками", true);
+		return "ok";
+	}
+	for (i=0; i<lstTemp.Count; i++) {	
+		if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		Tab1.FindElementByXPath("//a[contains(@class, 'fbReactComposerAttachmentSelector_MEDIA')]", 0).Click();
+		instance.SetFileUploadPolicy("ok", "");
+		if (lstTemp.Count==0) break;
+		strResultFileName = lstTemp[0];
+		lstTemp.RemoveAt(0);
+		lstTemp.Add(strResultFileName);
+		project.SendInfoToLog("Получено имя файла: " + strResultFileName);
+		// Публикация фото +++++++++++++++++
+//		Tab1.FindElementByXPath("//a[contains(@class, 'fbReactComposerAttachmentSelector_MEDIA')]", 0).Click();
+		instance.SetFilesForUpload(strResultFileName);
+		if (!Tab1.FindElementByXPath("//input[contains(@name, 'composer_photo')]", 0).IsVoid) { 
+			Tab1.FindElementByXPath("//input[contains(@name, 'composer_photo')]", 0).Click();
+		} else {
+			Tab1.FindElementByXPath("//input[contains(@class, '_n')]", 0).Click();
+		}
+		for (int g=0; g<10; g++) {
+			if (Tab1.FindElementByXPath("//div[contains(@class,'fbScrollableAreaContent')]/descendant::img/following-sibling::button",0).IsVoid) {
+				Thread.Sleep(rndGenerator.Next(3, 5)*1000);
+				continue;
+			} else {
+				break;
+			}
+		}
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+		Tab1.FindElementByXPath("//div[contains(@id, 'timeline_react_composer_container')]/descendant::i/following-sibling::div",1).Click();
+		instance.WaitFieldEmulationDelay();
+		Thread.Sleep(2000);
+		instance.SendText("{DOWN}",15);
+		Thread.Sleep(500);
+		instance.SendText("{ENTER}",15);
+		Tab1.FindElementByXPath("//div[contains(@id, 'timeline_react_composer_container')]/descendant::i/following-sibling::div",1).Click();
+		Tab1.FindElementByXPath("//div[contains(@class,'_ohf rfloat')]/descendant::button", 0).Click();
+		Thread.Sleep(5000);
+		Tab1.WaitDownloading();
+	}
+	project.SendInfoToLog("Фото на стену загружено",true);
+}
+Tab1.FindElementByXPath("//div[contains(@class,'_ohf rfloat')]/descendant::button", 0).Click();
+Thread.Sleep(5000);
+project.Variables["urlakk"].Value = Tab1.URL;
+
+//Заполняю информацию о себе
+
+Tab1.FindElementByXPath("//div[@id='pagelet_timeline_profile_actions']/a",0).Click();
+for (i=0; i<10; i++) {
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	if (!Tab1.FindElementByXPath("//form/textarea",0).IsVoid) {
+		try {
+			PauseBefore = rndGenerator.Next(0, 7500);
+			PauseBetweenChecks = rndGenerator.Next(0, 7500);
+			Timeout = rndGenerator.Next(15000, 30000);
+			FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+			FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+			SendTextMinDelay = rndGenerator.Next(0, 7500);
+			SendTextMaxDelay = rndGenerator.Next(0, 7500);
+			wHelper.ClickElementXPath(Tab1, true, null, "//form/textarea", 0);
+		} catch {
+			Tab1.FindElementByXPath("//form/textarea",0).Click();
+		}
+		Thread.Sleep(2000);
+		break;
+	} else {
+		Thread.Sleep(3000);
+		continue;
+	}
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+Tab1.FindElementByXPath("//form/textarea",0).SetValue(Hobbies,"Full");
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//form/preceding-sibling::div/descendant::button", 0);
+} catch {
+	Tab1.FindElementByXPath("//form/preceding-sibling::div/descendant::button",0).Click();
+}
+Thread.Sleep(5000);
+//Добавляю избранные фото
+for (i=0; i<5; i++) {
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	instance.SetFileUploadPolicy("ok", "");
+	if (lstTemp.Count==0) break;
+	strResultFileName = lstTemp[0];
+	lstTemp.RemoveAt(0);
+	Tab1.FindElementByXPath("//form/div[2]/div/descendant::i", i).Click();
+	instance.SetFilesForUpload(strResultFileName);
+	Thread.Sleep(4000);
+	Tab1.FindElementByXPath("//div[@class='uiScrollableAreaContent']/descendant::tbody/tr/descendant::img["+i+"]",0).Click();
+	Thread.Sleep(2000);
+}
+Tab1.FindElementByXPath("//input[@name='about_ids[]']",0).Click();
+//Редактирую раздел информация
+Tab1.FindElementByXPath("//form/following-sibling::div/div/following-sibling::a/span",0).Click();
+Tab1.WaitDownloading();
+Thread.Sleep(3000);
+Tab1.FindElementByXPath("//div[@class='fbTimelineEditEduWork']/descendant::div[contains(@class,'lfloat _ohe')]",0).Click();
+Thread.Sleep(3000);
+//Заполняю работу
+List<string> lstProff = new List<string>();
+for (int q=0; q<3; q++) {
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	RnD = new Random().Next(0,50);
+	strbridesbay = ZennoPoster.HttpGet("https://hh.ru/search/vacancy?clusters=true&enable_snippets=true&search_field=name&area=1&page="+RnD+"", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.HeaderAndBody, 15000);
+	regex = @"(?<=LinkModifier""\ href="").*(?=""\ data-position)";
+
+	foreach (Match rxMatch in Regex.Matches(strbridesbay, regex)) {
+		if (rxMatch.Value!=string.Empty) lstProff.Add(rxMatch.Value);
+	}
+	if (lstProff.Count==0) {
+		continue;
+	} else {
+		break;
+	}
+}
+string Doljnost = string.Empty;
+string Company = string.Empty;
+string Gorod = string.Empty;
+string Opisanie = string.Empty;
+string strProf = string.Empty;
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+int Pro = new Random().Next(0,lstProff.Count-1);
+for (int g=0; g<10; g++) {
+	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	strQuery = lstProff[Pro];
+	strProf = ZennoPoster.HttpGet(strQuery, strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.HeaderAndBody, 15000);
+
+	Doljnost = new Regex(@"(?<=vacancy-title"">).*(?=</h1>)").Match(strProf).Value;
+	Company = new Regex(@"(?<=name""\ content="").*?(?=""><h3)").Match(strProf).Value;
+	Gorod = new Regex(@"(?<=addressLocality""\ content="").*?(?=""><meta\ itemprop=)").Match(strProf).Value;
+	Opisanie = new Regex(@"(?<=description"">).*?(?=<div\ class=)").Match(strProf).Value;
+	Opisanie = Regex.Replace(Opisanie, @"\<.*?\>", " ");
+	if (Doljnost==string.Empty || Company==string.Empty ||
+		Gorod==string.Empty || Opisanie==string.Empty) {
+		continue;	
+	} else {
+		break;
+	}
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+Tab1.FindElementByXPath("//input[@name='employer_name']",0).SetValue(Company,"Full");
+instance.WaitFieldEmulationDelay();
+instance.SendText("{DOWN}", 15);
+Thread.Sleep(1000);
+instance.SendText("{ENTER}", 15);
+Thread.Sleep(1000);
+Tab1.FindElementByXPath("//input[@name='position_text']",0).SetValue(Doljnost,"Full");
+Thread.Sleep(1000);
+instance.SendText("{ENTER}", 15);
+Thread.Sleep(1000);
+Tab1.FindElementByXPath("//input[@name='location_text']",0).SetValue(Gorod,"Full");
+Thread.Sleep(1000);
+instance.SendText("{ENTER}", 15);
+Thread.Sleep(1000);
+Tab1.FindElementByXPath("//input[@name='description']",0).SetValue(Opisanie,"Full");
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+Thread.Sleep(5000);
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[@class='fbTimelineEditEduWork']/descendant::a[contains(@class,'selected ')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[@class='fbTimelineEditEduWork']/descendant::a[contains(@class,'selected ')]",0).Click();
+}
+Thread.Sleep(5000);
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[@class='fbTimelineEditEduWork']/descendant::div[contains(@class,'lfloat _ohe')]", 1);
+} catch {
+	Tab1.FindElementByXPath("//div[@class='fbTimelineEditEduWork']/descendant::div[contains(@class,'lfloat _ohe')]",1).Click();
+}
+Thread.Sleep(3000);
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+Tab1.FindElementByXPath("//span/label/input",0).SetValue("Эротическое шоу","Full");
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+Thread.Sleep(5000);
+Tab1.FindElementByXPath("//div[@class='fbTimelineEditEduWork']/descendant::div[contains(@class,'lfloat _ohe')]",2).Click();
+Thread.Sleep(3000);
+Tab1.FindElementByXPath("//input[@name='school_text']",0).SetValue(Gorod,"Full");
+instance.SendText("{DOWN}", 15);
+Thread.Sleep(1000);
+instance.SendText("{ENTER}", 15);
+Thread.Sleep(1000);
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[@class='fbTimelineEditEduWork']/descendant::a[contains(@class,'selected ')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[@class='fbTimelineEditEduWork']/descendant::a[contains(@class,'selected ')]",0).Click();
+}
+Thread.Sleep(5000);
+Tab1.FindElementByXPath("//div[@class='fbTimelineEditEduWork']/descendant::div[contains(@class,'lfloat _ohe')]",3).Click();
+Thread.Sleep(3000);
+Tab1.FindElementByXPath("//input[@name='school_text']",0).Click();
+Thread.Sleep(3000);
+instance.SendText("{DOWN}", 15);
+Thread.Sleep(1000);
+instance.SendText("{ENTER}", 15);
+Thread.Sleep(1000);
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[@class='fbTimelineEditEduWork']/descendant::a[contains(@class,'selected ')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[@class='fbTimelineEditEduWork']/descendant::a[contains(@class,'selected ')]",0).Click();
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@id,'about')]/descendant::h4/following-sibling::ul/descendant::a", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[contains(@id,'about')]/descendant::h4/following-sibling::ul/descendant::a",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//li[contains(@id,'current_city')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//li[contains(@id,'current_city')]",0).Click();
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+Tab1.FindElementByXPath("//div[@class='innerWrap']/input",0).SetValue(Gorod,"Full");
+Thread.Sleep(3000);
+instance.SendText("{DOWN}", 15);
+Thread.Sleep(1000);
+instance.SendText("{ENTER}", 15);
+Thread.Sleep(1000);
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//li[@id='hometown']/descendant::i", 0);
+} catch {
+	Tab1.FindElementByXPath("//li[@id='hometown']/descendant::i",0).Click();
+}
+if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+Tab1.FindElementByXPath("//div[@class='innerWrap']/input",0).SetValue(Gorod,"Full");
+Thread.Sleep(3000);
+instance.SendText("{DOWN}", 15);
+Thread.Sleep(1000);
+instance.SendText("{ENTER}", 15);
+Thread.Sleep(1000);
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@id,'about')]/descendant::h4/following-sibling::ul/descendant::a[4]", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[contains(@id,'about')]/descendant::h4/following-sibling::ul/descendant::a[4]",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@id,'pagelet_basic')]/descendant::i/following-sibling::span[1]", 3);
+} catch {
+	Tab1.FindElementByXPath("//div[contains(@id,'pagelet_basic')]/descendant::i/following-sibling::span[1]",3).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@name,'religion_text')]", 0,Religion);
+	instance.WaitFieldEmulationDelay();
+	instance.SendText("{DOWN}",15);
+	instance.SendText("{ENTER}",15);
+} catch {
+	Tab1.FindElementByXPath("//input[contains(@name,'religion_text')]",0).SetValue(Religion,"Full");
+	instance.WaitFieldEmulationDelay();
+	instance.SendText("{DOWN}",15);
+	instance.SendText("{ENTER}",15);
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+Thread.Sleep(5000);
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@id,'about')]/descendant::h4/following-sibling::ul/descendant::a[5]", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[contains(@id,'about')]/descendant::h4/following-sibling::ul/descendant::a[5]",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@id,'pagelet_relationships')]/descendant::div[contains(@class,'lfloat ')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[contains(@id,'pagelet_relationships')]/descendant::div[contains(@class,'lfloat ')]",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.SetElementValueXPath(Tab1, true, null, "//select[contains(@name,'status')]", 0, "Без", ThrowErrors: false);
+	instance.WaitFieldEmulationDelay();
+	instance.SendText("{ENTER}",15);
+} catch {
+	Tab1.FindElementByXPath("//select[contains(@name,'status')]",0).SetValue("Без","Full");
+	instance.WaitFieldEmulationDelay();
+	instance.SendText("{ENTER}",15);
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+Thread.Sleep(5000);
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@id,'pagelet_bio')]/descendant::i", 0);
+} catch {
+	Tab1.FindElementByXPath("//div[contains(@id,'pagelet_bio')]/descendant::i",0).Click();
+}
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.SetElementValueXPath(Tab1, true, null, "//textarea[@name='textarea']", 0, "Я родилась в "+Country);
+	instance.WaitFieldEmulationDelay();
+	instance.SendText("{ENTER}",15);
+} catch {
+	Tab1.FindElementByXPath("//select[contains(@name,'status')]",0).SetValue("Я родилась в "+Country,"Full");
+	instance.WaitFieldEmulationDelay();
+	instance.SendText("{ENTER}",15);
+}
+instance.WaitFieldEmulationDelay();
+instance.SendText("Живу в городе "+City,15);
+instance.SendText("{ENTER}",15);
+instance.SendText("в браке не состою ",15);
+instance.SendText("{ENTER}",15);
+instance.SendText("Детей нет ",15);
+instance.SendText("{ENTER}",15);
+instance.SendText("Рост "+Height,15);
+instance.SendText("{ENTER}",15);
+instance.SendText("Вес "+Weight,15);
+instance.SendText("{ENTER}",15);
+instance.SendText("Мой цвет глаз "+EyeColor,15);
+instance.SendText("{ENTER}",15);
+instance.SendText("Мой цвет волос "+HairColor,15);
+instance.SendText("{ENTER}",15);
+instance.SendText("У меня спортивное телосложение я занимаюсь йогой ",15);
+instance.SendText("{ENTER}",15);
+instance.SendText("Я не курю ",15);
+instance.SendText("{ENTER}",15);
+instance.SendText("Не употребляю алкоголь ",15);
+instance.SendText("{ENTER}",15);
+try {
+	PauseBefore = rndGenerator.Next(0, 7500);
+	PauseBetweenChecks = rndGenerator.Next(0, 7500);
+	Timeout = rndGenerator.Next(15000, 30000);
+	FullEmulationDelayFrom = rndGenerator.Next(0, 7500);
+	FullEmulationDelayTo = rndGenerator.Next(0, 7500);
+	SendTextMinDelay = rndGenerator.Next(0, 7500);
+	SendTextMaxDelay = rndGenerator.Next(0, 7500);
+	wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@name,'submit')]", 0);
+} catch {
+	Tab1.FindElementByXPath("//button[contains(@name,'submit')]",0).Click();
+}
+Tab1.FindElementByXPath("//a[contains(text(),'Русский')]", 0).Click();
+Thread.Sleep(5000);
+Tab1.FindElementByXPath("//button[contains(@class, 'layerConfirm uiOverlayButton')]", 0).Click();
+Tab1.WaitDownloading();
+
+//Сохраняю профиль
+project.Profile.Save(project.Directory + @"\Facebook Ultimate Bot v.3.0\Cookie\" + strLogin + ".zpprofile", true, true, true, true, true);
+bool blnPhotoLogin = Convert.ToBoolean(project.Variables["photoLogin"].Value);
+if (blnPhotoLogin) {
+	string UrlBefore = Tab1.URL;
+	Tab1.Navigate("https://www.facebook.com/settings",UrlBefore);
+	Tab1.WaitDownloading();
+	Tab1.FindElementByXPath("//li[@id='navItem_security']/descendant::div[contains(@class, 'noCount')]",0).Click();
+	Tab1.WaitDownloading();
+	Tab1.FindElementByXPath("//div[contains(@id,'SettingsPage')]/descendant::tbody[4]",0).Click();
+	Thread.Sleep(3000);
+	Tab1.FindElementByXPath("//div[contains(@id,'device_based_login')]/descendant::div[@class='pbm fbSettingsEditorFields']/div[1]/descendant::a",1).Click();
+	Tab1.WaitDownloading();
+	Tab1.FindElementByXPath("//div[contains(@id,'SettingsPage')]/div/div/div/div[4]/div[3]/descendant::tbody",0).Click();
+	Thread.Sleep(3000);
+	List<string> lstCode = new List<string>();
+	Tab1.FindElementByXPath("//div[contains(@id,'two_fac_auth')]/descendant::div[contains(@class,'fbSettingsEditorField')]/div[1]/div/div[5]/descendant::a",0).Click();
+	Thread.Sleep(4000);
+	string strCod = Tab1.FindElementByXPath("//div[@class='pam uiBoxWhite topborder']",0).InnerHtml;
+	regex = @"(?<=fcb"">).*?(?=\ </span)";
+
+	foreach (Match rxMatch in Regex.Matches(strCod, regex)) {
+		if (rxMatch.Value!=string.Empty) lstCode.Add(rxMatch.Value);
+	}
+	Tab1.FindElementByXPath("//a[contains(@class,'layerCancel')]",0).Click();
+	Thread.Sleep(3000);
+	Tab1.FindElementByXPath("//li[@id='navItem_privacy']",0).Click();
+	Tab1.WaitDownloading();
+	Tab1.FindElementByXPath("//div[contains(@id,'SettingsPage')]/ul/li[1]/descendant::a[1]",0).Click();
+	Thread.Sleep(5000);
+	for (int J=0; J<20; J++) {
+		HtmlElement DostupAll = instance.ActiveTab.GetDocumentByAddress("0").FindElementByAttribute("span", "innertext", "Доступно\\ всем", "regexp", J);
+		if (!DostupAll.IsVoid) {
+			instance.WaitFieldEmulationDelay();
+			DostupAll.RiseEvent("click", instance.EmulationLevel);
+		}
+		HtmlElement DostupAll1 = instance.ActiveTab.GetDocumentByAddress("0").FindElementByAttribute("span", "innertext", "Public", "regexp", J);
+		if (!DostupAll1.IsVoid) {
+			instance.WaitFieldEmulationDelay();
+			DostupAll1.RiseEvent("click", instance.EmulationLevel);
+		}
+	}
+	string strListToStringDelimiter = Environment.NewLine;
+	string strCode = String.Join(strListToStringDelimiter, lstCode);
+	project.Variables["Code"].Value = strCode;
+}
+
+//спамер в личку
+
+Tab Tab1 = instance.ActiveTab; //открываю активную вкладку
+string strLogin = project.Variables["login"].Value;
+string strProxy = project.Variables["proxy"].Value;
+bool blnProxyNo = Convert.ToBoolean(project.Variables["noproxy"].Value);
+if (strProxy==string.Empty) {
+	if (blnProxyNo) {
+		project.SendInfoToLog("Working No Proxy",true);
+	} else {
+		project.SendInfoToLog("Загрузите в файл мульитакк прокси, в проитвном случае работу вы выполнить не смоете без прокси для безопасности акков и для Вашего кармана",true);
+		return "oki";
+	}
+}
+bool blnRealPeople = Convert.ToBoolean(project.Variables["RejimRabot"].Value);
+if (blnRealPeople) {
+	return "oki";
+}
+IZennoList lstSpamList = project.Lists["SpamList"];
+
+Random rndGenerator = new Random();
+if (Tab1.FindElementByXPath("//img[contains(@id,'profile_pic_header')]",0).IsVoid) return "oki";
+string strVibor = project.Variables["vibor"].Value;
+int intTextSpamNum = Convert.ToInt32(project.Variables["textSpamNum"].Value);
+project.SendInfoToLog(string.Format("Активирован модуль: {0}", strVibor));
+Global.SpecialForms.AlertNotificator.Instance.DisplayAlert("Активация", "Активирован модуль: "+ strVibor, null, 15000);
+for (int i = 0; i < lstSpamList.Count; i++) {
+	if (intTextSpamNum==i) {
+		project.SendInfoToLog("Достигли лимит, заканчиваем работу",true);
+		return "ok";
+	}
+	lstSpamList.Shuffle();
+	if (lstSpamList.Count==0) {
+		project.SendInfoToLog("Закончились ID людей, некому больше отправлять, завершаю работу",true);
+		return "ok";
+	}
+	string strID = lstSpamList[0];
+	lstSpamList.RemoveAt(0);
+	Tab1.Navigate("https://www.facebook.com/"+strID);
+	Tab1.WaitDownloading();
+
+	Thread.Sleep(rndGenerator.Next(1500, 2500));
+	Tab1.FindElementByXPath("//a[string()='Message' or string()='Сообщение']",0).Click();
+	Thread.Sleep(rndGenerator.Next(3500, 5500));
+	Tab1.FindElementByXPath("//div[contains(@class, 'Footer')]/descendant::div[contains(@id, 'place')]",0).Click();
+	string strtextSpam = project.Variables["textSpam"].Value;
+	string SpinSpam = Macros.TextProcessing.Spintax(strtextSpam);
+	Thread.Sleep(rndGenerator.Next(500, 1500));
+	instance.WaitFieldEmulationDelay();
+	instance.SendText(SpinSpam, 15);
+	Thread.Sleep(rndGenerator.Next(500, 1500));
+	instance.SendText("{ENTER}", 15);
+	//Tab1.FindElementByXPath("//div[contains(@class, 'Footer')]/descendant::div[contains(@id, 'place')]",0).SetValue(SpinSpam, "Full");
+	Thread.Sleep(rndGenerator.Next(500, 1500));
+	Tab1.FindElementByXPath("//a[contains(@class, 'close button')]",0).Click();
+	Thread.Sleep(rndGenerator.Next(5000, 15000));
+}
+Global.SpecialForms.AlertNotificator.Instance.DisplayAlert("Супер", "Разослал всем сообщения", null, 15000);
